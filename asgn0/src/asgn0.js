@@ -1,4 +1,6 @@
-// asgn0.js
+// Assignment 0
+// Jonathan Salin Lee
+// jlee1123@ucsc.edu
 const DEFAULT_CANVAS_BACKGROUND = "#000000";
 const V1_COLOR = "red";
 const V2_COLOR = "blue";
