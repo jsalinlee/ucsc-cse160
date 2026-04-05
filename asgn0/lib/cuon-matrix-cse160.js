@@ -15,6 +15,7 @@ class Vector3 {
           v[2] = opt_src[2];
         }
         this.elements = v;
+        this.dimension = 3;
     }
 
     /**
@@ -35,6 +36,8 @@ class Vector3 {
         for (i = 0; i < 3; ++i) {
           d[i] = s[i];
         }
+        
+        this.dimension = src.dimension;
 
         return this;
     }
@@ -44,9 +47,9 @@ class Vector3 {
       * @return this
       */
     add(other) {
-        // Insert your code here.
-        // This function should change this vector (this.elements) and not create a new vector.
-
+        for (let i = 0; i < this.elements.length; i++) {
+            this.elements[i] += other.elements[i];
+        }
         // Don't delete the return statement.
         return this;
     };
@@ -56,9 +59,9 @@ class Vector3 {
       * @return this
       */
     sub(other) {
-        // Insert your code here.
-        // This function should change this vector (this.elements) and not create a new vector.
-
+        for (let i = 0; i < this.elements.length; i++) {
+            this.elements[i] -= other.elements[i];
+        }
         // Don't delete the return statement.
         return this;
     };
@@ -68,9 +71,7 @@ class Vector3 {
       * @return this
       */
     div(scalar) {
-        // Insert your code here.
-        // This function should change this vector (this.elements) and not create a new vector.
-
+        this.elements = this.elements.map((e) => e / scalar);
         // Don't delete the return statement.
         return this;
     };
@@ -80,9 +81,7 @@ class Vector3 {
       * @return this
       */
     mul(scalar) {
-        // Insert your code here.
-        // This function should change this vector (this.elements) and not create a new vector.
-
+        this.elements = this.elements.map((e) => e * scalar);
         // Don't delete the return statement.
         return this;
     };
@@ -92,9 +91,10 @@ class Vector3 {
       * @return scalar
       */
     static dot(other1, other2) {
-        // Insert your code here.
-        let d = 0; // Modify this line to calculate this vector's magnitude.
-
+        let d = 0;
+        for (let i = 0; i < other1.dimension; i++) {
+            d += other1.elements[i] * other2.elements[i];
+        }
         // Don't delete the return statement.
         return d;
     }
@@ -119,7 +119,11 @@ class Vector3 {
     magnitude() {
         // Insert your code here.
         let m = 0; // Modify this line to calculate this vector's magnitude.
-
+        this.elements.forEach((e) => {
+            m += Math.pow(e, 2);
+        })
+        m = Math.sqrt(m);
+        
         // Don't delete the return statement.
         return m;
     };
@@ -131,6 +135,7 @@ class Vector3 {
     normalize() {
         // Insert your code here.
         // This function should change this vector (this.elements) and not create a new vector.
+        this.div(this.magnitude());
 
         // Don't delete the return statement.
         return this;
