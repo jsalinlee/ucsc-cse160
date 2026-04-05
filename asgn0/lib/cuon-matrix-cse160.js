@@ -15,7 +15,7 @@ class Vector3 {
           v[2] = opt_src[2];
         }
         this.elements = v;
-        this.dimension = 3;
+        this.dimension = this.elements.length;
     }
 
     /**
@@ -36,7 +36,7 @@ class Vector3 {
         for (i = 0; i < 3; ++i) {
           d[i] = s[i];
         }
-        
+
         this.dimension = src.dimension;
 
         return this;
@@ -100,14 +100,14 @@ class Vector3 {
     }
 
     /**
-      * Calcualte the cross product between this vector and other.
+      * Calculate the cross product between this vector and other.
       * @return new vector
       */
     static cross(other1, other2) {
-        // Insert your code here.
-        // This function should create and return a new vector.
-        let v3 = new Vector3(); // Modify this line to calculate cross product between other1 and other2.
-
+        let v3 = new Vector3();
+        v3.elements[0] = (other1.elements[1] * other2.elements[2]) - (other1.elements[2] * other2.elements[1])
+        v3.elements[1] = -1 * ((other1.elements[0] * other2.elements[2]) - (other1.elements[2] * other2.elements[0]))
+        v3.elements[2] = (other1.elements[0] * other2.elements[1]) - (other1.elements[1] * other2.elements[0])
         // Don't delete the return statement.
         return v3;
     }
@@ -117,8 +117,7 @@ class Vector3 {
       * @return scalar
       */
     magnitude() {
-        // Insert your code here.
-        let m = 0; // Modify this line to calculate this vector's magnitude.
+        let m = 0;
         this.elements.forEach((e) => {
             m += Math.pow(e, 2);
         })
@@ -133,8 +132,6 @@ class Vector3 {
       * @return this
       */
     normalize() {
-        // Insert your code here.
-        // This function should change this vector (this.elements) and not create a new vector.
         this.div(this.magnitude());
 
         // Don't delete the return statement.
