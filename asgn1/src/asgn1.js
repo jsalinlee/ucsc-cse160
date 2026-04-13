@@ -93,15 +93,16 @@ function addActionsForHtmlUI() {
     // Shape slider events
     document.getElementById('sizeSlide').addEventListener('mouseup', function() {g_selectedSize = this.value});
     document.getElementById('circlinessSlide').addEventListener('mouseup', function() {circleSegments = this.value});
-
+    
     // Shape select events
     document.getElementById('pointButton').onclick = function() {g_selectedType=POINT};
     document.getElementById('triButton').onclick = function() {g_selectedType=TRIANGLE};
     document.getElementById('circleButton').onclick = function() {g_selectedType=CIRCLE};
-
+    
     // Breakfast time
     document.getElementById('breakfastTime').onclick = cookBreakfast;
     document.getElementById('mandalaMode').onclick = toggleMandalaMode;
+    document.getElementById('mandalaSlide').addEventListener('mouseup', function() {mandalaSegments = this.value});
 }
 
 function main() {
