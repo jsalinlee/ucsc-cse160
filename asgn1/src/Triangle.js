@@ -17,7 +17,7 @@ class Triangle {
 
         // If triangle predefined, use stored position, otherwise use standard triangle
         var d = this.size/200.0; // delta
-        if (xy[2]) {
+        if (xy[3] != undefined) {
             drawTriangle([xy[0], xy[1], xy[2], xy[3], xy[4], xy[5]]);
         } else {
             drawTriangle([xy[0], xy[1], xy[0] + d, xy[1],   xy[0], xy[1] + d]);
