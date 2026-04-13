@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Draw stuff</title>
+  </head>
+
+  <body onload="main()">
+    <canvas id="webgl" width="400" height="400">
+    Please use a browser that supports "canvas"
+    </canvas>
+
+    <!-- Uncomment for performance testing -->
+    <!-- <p id="numdot"> XXX </p> -->
+
+    <div class="paint-controls">
+        <p>
+            <button type="button" id="clearButton">Clear Canvas</button>
+        </p>
+        <div class="shape-select">
+            Drawing Mode:
+            <button type="button" id="pointButton">Point</button>
+            <button type="button" id="triButton">Triangle</button>
+            <button type="button" id="circleButton">Circle</button>
+        </div>
+        <br>
+        <div class="color-picker">
+            Shape Color:
+            <div class="slider-input">
+                Red: <input type="range" min="0" max="100" value="0" class="slider" id="redSlide">
+            </div>
+            <div class="slider-input">
+                Green: <input type="range" min="0" max="100" value="0" class="slider" id="greenSlide">
+            </div>
+            <div class="slider-input">
+                Blue: <input type="range" min="0" max="100" value="0" class="slider" id="blueSlide">
+            </div>
+        </div>
+        <div class="slider-input">
+            Shape Size: <input type="range" min="5" max="40" value="0" class="slider" id="sizeSlide">
+        </div>
+        <div class="slider-input">
+            Circliness: <input type="range" min="3" max="20" value="0" class="slider" id="circlinessSlide">
+        </div>
+        <br>
+        <div>
+            <p>Bonus:</p>
+            <button type="button" id="breakfastTime">Have breakfast</button>
+        </div>
+        <br>
+        <div>
+            <input type="checkbox" id="mandalaMode">
+            <label for="mandalaMode">Mandala Mode</label>
+        </div>
+    </div>
+
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="./Point.js"></script>
+    <script src="./Triangle.js"></script>
+    <script src="./Circle.js"></script>
+    <script src="./asgn1.js"></script>
+
+  </body>
+</html>
