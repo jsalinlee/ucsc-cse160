@@ -6,7 +6,8 @@ My implementation for the Awesomeness points is adding the mandala brush effect.
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Draw stuff</title>
+    <title>Bat stuff</title>
+    <link rel="stylesheet", href="styles.css">
   </head>
 
   <body onload="main()">
@@ -17,22 +18,41 @@ My implementation for the Awesomeness points is adding the mandala brush effect.
     <!-- Uncomment for performance testing -->
     <p id="numdot"></p>
 
-    <div class="paint-controls">
-        <div>
-            <label>Yellow</label><input type="range" min="-45" max="45" value="0" class="slider" id="yellowSlide">
+    <div class="joint-controls">
+        <div class="control-panel-item">
+            <label>Pitch</label>
+                <input type="range" min="-90" max="90" value="0" class="slider" id="pitchSlide">
             <label>Animation:</label>
-            <button type="button" id="animationYellowOnButton">ON</button>
-            <button type="button" id="animationYellowOffButton">OFF</button>
+                <button type="button" id="animationPitchOnButton">ON</button>
+                <button type="button" id="animationPitchOffButton">OFF</button>
         </div>
-        <div>
-            Magenta <input type="range" min="-45" max="45" value="0" class="slider" id="magentaSlide">
+        <div class="control-panel-item">
+            <label>Roll</label>
+                <input type="range" min="0" max="360" value="0" class="slider" id="rollSlide">
             <label>Animation:</label>
-            <button type="button" id="animationMagentaOnButton">ON</button>
-            <button type="button" id="animationMagentaOffButton">OFF</button>
+                <button type="button" id="animationRollOnButton">ON</button>
+                <button type="button" id="animationRollOffButton">OFF</button>
+        </div>
+        <div class="control-panel-item">
+            <p>
+                <label>Right upper arm:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="rightUpArmSlide">
+            </p>
+            <p>
+                <label>Left upper arm:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="leftUpArmSlide">
+            </p>
+        <div>
+                <label>Fly away:</label>
+                    <button type="button" id="animationFlightOnButton">ON</button>
+                    <button type="button" id="animationFlightOffButton">OFF</button>
+            </div>
+        </div>
+        <div class="control-panel-item">
+            Camera Angle <input type="range" min="0", max="360" value="0" class="slider" id="angleSlide">
         </div>
         <div>
-            Camera Angle <input type="range" min="0", max="360" value="90" class="slider" id="angleSlide">
+            <label>Show Bone Structure:</label>
         </div>
+        <input type="checkbox" id="toggleShowSkeleton">
     </div>
     <script src="../lib/webgl-utils.js"></script>
     <script src="../lib/webgl-debug.js"></script>

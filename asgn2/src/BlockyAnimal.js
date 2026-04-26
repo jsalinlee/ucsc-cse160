@@ -1,72 +1,70 @@
 // BlockyAnimal.js
-
 // Vertex shader program
 let VSHADER_SOURCE = `
-    precision mediump float;
     attribute vec4 a_Position;
-    attribute vec4 a_Color;
 
     uniform mat4 u_ModelMatrix;
     uniform mat4 u_GlobalRotateMatrix;
 
-    varying vec4 v_Color;
-
     void main() {
         gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
-        v_Color = a_Color;
     }
 `;
 
 // Fragment shader program
 let FSHADER_SOURCE = `
     precision mediump float;
-    varying vec4 v_Color;
+    uniform vec4 u_FragColor;
 
     void main() {
-        gl_FragColor = v_Color;
+        gl_FragColor = u_FragColor;
     }
 `;
-// // Vertex shader program
-// let VSHADER_SOURCE = `
-//     attribute vec4 a_Position;
-
-//     uniform mat4 u_ModelMatrix;
-//     uniform mat4 u_GlobalRotateMatrix;
-
-//     void main() {
-//         gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
-//     }
-// `;
-
-// // Fragment shader program
-// let FSHADER_SOURCE = `
-//     precision mediump float;
-//     uniform vec4 u_FragColor;
-
-//     void main() {
-//         gl_FragColor = u_FragColor;
-//     }
-// `;
 
 // Color values
 const COLOR_BODY = [0.35, 0.2, 0.1, 1];
 const COLOR_BONE = [0.8, 0.8, 0.8, 1];
 
-// Global variables
+// ------- Global variables ------------------
+// WebGL variables
 let canvas;
 let gl;
 let a_Position;
-let a_Color;
-let u_Size = 10.0;
 let u_ModelMatrix;
 let u_GlobalRotateMatrix;
+let u_FragColor;
+
+// Shape type constants
+const POINT = 0;
+const TRIANGLE = 1;
+const CIRCLE = 2;
+
+
+// Angle variables
+let g_globalAngle = 0;
+let g_pitchAngle = 0;
+let g_rollAngle = 0;
+let g_rightUpArmAngle = 0;
+let g_leftUpArmAngle = 0;
+let g_pitchAnimation = false;
+let g_rollAnimation = false;
+let g_flyingAnimation = false;
+
+let g_showSkeleton = false;
+
+// ------- End global variables ------------------
+
+// Development initialization values
+// Set default angle to make modeling easier
+g_globalAngle = 180;
+g_pitchAngle = -90;
 
 function setupWebGL() {
     // Retrieve <canvas> element
-    canvas = document.getElementById('webgl', { preserveDrawingBuffer: true });
+    canvas = document.getElementById('webgl');
 
     // Get the rendering context for WebGL
-    gl = getWebGLContext(canvas);
+    gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
@@ -89,8 +87,8 @@ function connectVariablesToGLSL() {
         return;
     }
 
-    a_Color = gl.getAttribLocation(gl.program, 'a_Color');
-    if (a_Color < 0) {
+    u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
+    if (u_FragColor < 0) {
         console.log('Failed to get the storage location of a_Position');
         return;
     }
@@ -117,39 +115,33 @@ function connectVariablesToGLSL() {
     }
 }
 
-// Type constants
-const POINT = 0;
-const TRIANGLE = 1;
-const CIRCLE = 2;
-
-// Globals related to UI elements
-let g_selectedColor = [1.0, 1.0, 1.0, 1.0];
-let g_selectedSize = 5.0;
-let g_selectedType = POINT;
-
-// Set default angle to make modeling easier
-let g_globalAngle = 0;
-// let g_globalAngle = 90;
-
-let g_yellowAngle = 0;
-let g_magentaAngle = 0;
-let g_yellowAnimation = false;
-let g_magentaAnimation = false;
-
 function addActionsForHtmlUI() {
 
     // Button events
-    document.getElementById('animationYellowOnButton').onclick = function() {g_yellowAnimation = true;};
-    document.getElementById('animationYellowOffButton').onclick = function() {g_yellowAnimation = false;};
-    document.getElementById('animationMagentaOnButton').onclick = function() {g_magentaAnimation = true;};
-    document.getElementById('animationMagentaOffButton').onclick = function() {g_magentaAnimation = false;};
+    document.getElementById('animationPitchOnButton').onclick = function() {g_pitchAnimation = true;};
+    document.getElementById('animationPitchOffButton').onclick = function() {g_pitchAnimation = false;};
+    document.getElementById('animationRollOnButton').onclick = function() {g_rollAnimation = true;};
+    document.getElementById('animationRollOffButton').onclick = function() {g_rollAnimation = false;};
+    
+    document.getElementById('animationFlightOnButton').onclick = function() {g_flyingAnimation = true;};
+    document.getElementById('animationFlightOffButton').onclick = function() {g_flyingAnimation = false;};
+
+    
+    document.getElementById('toggleShowSkeleton').onclick = function() {g_showSkeleton = this.checked};
 
     // Joint movement sliders
-    document.getElementById('yellowSlide').addEventListener('mousemove', function() {g_yellowAngle = this.value; renderScene();});
-    document.getElementById('magentaSlide').addEventListener('mousemove', function() {g_magentaAngle = this.value; renderScene();});
-
-    // document.getElementById('angleSlide').addEventListener('mouseup', function() {g_globalAngle = this.value; renderScene(); });
-    document.getElementById('angleSlide').addEventListener('mousemove', function() {g_globalAngle = this.value; renderScene(); });
+    document.getElementById('pitchSlide').addEventListener(
+        'mousemove', function() {g_pitchAngle = this.value; renderScene();});
+    document.getElementById('rollSlide').addEventListener(
+        'mousemove', function() {g_rollAngle = this.value; renderScene();});
+    document.getElementById('rightUpArmSlide').addEventListener(
+        'mousemove', function() {g_rightUpArmAngle = this.value; renderScene();});
+    document.getElementById('leftUpArmSlide').addEventListener(
+        'mousemove', function() {g_leftUpArmAngle = this.value; renderScene();});
+    
+    // Camera movement slider
+    document.getElementById('angleSlide').addEventListener(
+        'mousemove', function() {g_globalAngle = this.value; renderScene(); });
 }
 
 function main() {
@@ -157,14 +149,14 @@ function main() {
     setupWebGL();
     // Set up GLSL shader programs and connect GLSL variables
     connectVariablesToGLSL();
-    
     // Set up actions for HTML UI elements
     addActionsForHtmlUI();
-    // Register event handlers for mouse events
-    canvas.onmousedown = (ev) => {
-        handleClicks(ev);
-    };
-    canvas.onmousemove = function(ev) { if (ev.buttons == 1) handleClicks(ev);};
+
+    // // Register event handlers for mouse events
+    // canvas.onmousedown = (ev) => {
+    //     handleClicks(ev);
+    // };
+    // canvas.onmousemove = function(ev) { if (ev.buttons == 1) handleClicks(ev);};
 
     // Specify the color for clearing <canvas>
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -194,13 +186,16 @@ function tick() {
 
 // Update the angles of everything if currently animated
 function updateAnimationAngles() {
-    if (g_yellowAnimation) {
-        g_yellowAngle = 45 * Math.sin(g_seconds);
+    if (g_pitchAnimation) {
+        g_pitchAngle = 45 * Math.sin(g_seconds);
     }
-    if (g_magentaAnimation) {
-        g_magentaAngle = 45 * Math.sin(3*g_seconds);
+    if (g_rollAnimation) {
+        g_rollAngle = 45 * Math.sin(3*g_seconds);
     }
-
+    if (g_flyingAnimation) {
+        g_rightUpArmAngle = 45 * Math.sin(2*g_seconds);
+        g_leftUpArmAngle = 45 * Math.sin(2*g_seconds);
+    }
 }
 
 function drawCube(mat, color) {
@@ -225,29 +220,6 @@ function renderScene() {
     gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
     
     drawBat();
-    // let modelMatrix = new Matrix4();
-
-    // modelMatrix.setTranslate(-0.25, -0.75, 0);
-    // modelMatrix.scale(0.5, 0.3, 0.5);
-    // // Draw the body cube
-    // drawCube(modelMatrix, COLOR_BODY);
-
-    // // Draw a left arm
-    // modelMatrix.setTranslate(0, -0.5, 0);
-    // modelMatrix.rotate(-5, 1, 0, 0);
-    // modelMatrix.rotate(-g_yellowAngle, 0, 0, 1);
-    // let yellowCoordinatesMat = new Matrix4(modelMatrix);
-    // modelMatrix.scale(0.25, 0.7, 0.5);
-    // modelMatrix.translate(-0.5, 0, 0);
-    // drawCube(modelMatrix, [1,1,0,1]);
-
-    // // Test box
-    // modelMatrix = yellowCoordinatesMat;
-    // modelMatrix.translate(0, 0.65, 0);
-    // modelMatrix.rotate(-g_magentaAngle, 0, 0, 1);
-    // modelMatrix.scale(0.3, 0.3, 0.3);
-    // modelMatrix.translate(-0.5, 0, -0.001);
-    // drawCube(modelMatrix, [1, 0, 1, 1]);
 
     // Uncomment for performance testing 
     var duration = performance.now() - startTime;
@@ -256,55 +228,81 @@ function renderScene() {
 
 function drawBat() {
     let modelMatrix = new Matrix4();
+    modelMatrix.rotate(-g_pitchAngle, 1, 0, 0);
+    modelMatrix.rotate(-g_rollAngle, 0, 0, 1);
     
-    // Draw the skeleton
-    // modelMatrix.translate(0, -0.5, 0);
-    modelMatrix.rotate(-g_yellowAngle, 1, 0, 0);
-    modelMatrix.scale(0.08, 0.08, 1);
-    modelMatrix.translate(-0.5, -0.5, -0.5);
+    // Draw the skeleton body
+    // Spine
     let bodyCoordinateMat = new Matrix4(modelMatrix);
+    modelMatrix.scale(0.06, 0.06, 0.3);
+    modelMatrix.translate(-0.5, -0.5, -0.5);
     drawCube(modelMatrix, COLOR_BONE);
-    modelMatrix.rotate(90, 0, 1, 0);
-    modelMatrix.translate(-0.05, 0, -0.25);
-    modelMatrix.scale(0.08, 0.08, 0.5);
-    modelMatrix = bodyCoordinateMat;
-    // modelMatrix.scale(0.3, 0.03, 0.4);
-    modelMatrix.translate(-0.15, 0.1255, -0.2);
-    // drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
 
-    // // Draw the body
-    // modelMatrix.translate(0, -0.125, 0);
-    // modelMatrix.rotate(90, 0, 1, 0);
-    // modelMatrix.rotate(-g_yellowAngle, 0, 0, 1);
-    // modelMatrix.translate(-0.2, 0, -0.25);
-    // modelMatrix.scale(0.5, 0.25, 0.4);
-    // let bodyCoordinateMat = new Matrix4(modelMatrix);
-    // drawCube(modelMatrix, COLOR_BODY);
-    // modelMatrix = bodyCoordinateMat;
-    // modelMatrix.scale(0.8, 0.2, 0.8);
-    // modelMatrix.translate(0.125, 5, 0.125);
-    // drawCube(modelMatrix, COLOR_BONE);
-    // modelMatrix.setIdentity();
+    // Shoulders
+    modelMatrix = new Matrix4(bodyCoordinateMat);
+    modelMatrix.translate(0, 0, -0.05);
+    // modelMatrix.rotate(g_rightUpArmAngle, 0, 1, 0);
+    modelMatrix.scale(0.2, 0.06, 0.06);
+    modelMatrix.translate(-0.5, -0.5, -0.5);
+    drawCube(modelMatrix, COLOR_BONE);
+    // modelMatrix.translate(0, 0, 1);
     
-    // // Draw a left arm
-    // modelMatrix.translate(0, -0.5, 0);
-    // // modelMatrix.rotate(-5, 1, 0, 0);
-    // modelMatrix.rotate(-g_yellowAngle, 0, 0, 1);
-    // let yellowCoordinatesMat = new Matrix4(modelMatrix);
-    // modelMatrix.scale(0.25, 0.7, 0.5);
-    // modelMatrix.translate(-0.5, 0, 0);
-    // drawCube(modelMatrix, [1,1,0,1]);
-    // modelMatrix.setIdentity();
+    modelMatrix = new Matrix4(bodyCoordinateMat);
+    modelMatrix.translate(0.1, 0, -0.05);
+    modelMatrix.rotate(-45, 0, 1, 0);
+    modelMatrix.rotate(g_rightUpArmAngle, 0, 1, 0);
+    modelMatrix.scale(0.1, 0.06, 0.06);
+    modelMatrix.translate(0, -0.5, -0.5);
+    drawCube(modelMatrix, COLOR_BODY);
     
-    // // Test box
-    // modelMatrix = yellowCoordinatesMat;
-    // modelMatrix.translate(0, 0.65, 0);
-    // modelMatrix.rotate(-g_magentaAngle, 0, 0, 1);
-    // modelMatrix.scale(0.3, 0.3, 0.3);
-    // modelMatrix.translate(-0.5, 0, -0.001);
-    // drawCube(modelMatrix, [1, 0, 1, 1]);
-    // modelMatrix.setIdentity();
+    modelMatrix = new Matrix4(bodyCoordinateMat);
+    modelMatrix.translate(-0.1, 0, -0.05);
+    modelMatrix.rotate(225, 0, 1, 0);
+    modelMatrix.rotate(-g_rightUpArmAngle, 0, 1, 0);
+    modelMatrix.scale(0.1, 0.06, 0.06);
+    modelMatrix.translate(0, -0.5, -0.5);
+    drawCube(modelMatrix, COLOR_BODY);
+
+    modelMatrix = new Matrix4(bodyCoordinateMat);
+    modelMatrix.translate(-0.1, 0, -0.05);
+    modelMatrix.rotate(225, 0, 1, 0);
+    modelMatrix.rotate(-g_rightUpArmAngle, 0, 1, 0);
+    modelMatrix.scale(0.1, 0.06, 0.06);
+    modelMatrix.translate(0, -0.5, -0.5);
+    drawCube(modelMatrix, COLOR_BODY);
+
+    
+    if (g_showSkeleton) {
+        // Draw the body
+        modelMatrix = bodyCoordinateMat;
+        modelMatrix.scale(0.2, 0.2, 0.301);
+        modelMatrix.translate(-0.5, -0.5, -0.5);
+        drawCube(modelMatrix, COLOR_BODY);
+        // modelMatrix = bodyCoordinateMat;
+        // modelMatrix.scale(0.8, 0.2, 0.8);
+        // modelMatrix.translate(0.125, 5, 0.125);
+        // drawCube(modelMatrix, COLOR_BONE);
+        // modelMatrix.setIdentity();
+        
+        // // Draw a left arm
+        // modelMatrix.translate(0, -0.5, 0);
+        // // modelMatrix.rotate(-5, 1, 0, 0);
+        // modelMatrix.rotate(-g_pitchAngle, 0, 0, 1);
+        // let pitchCoordinatesMat = new Matrix4(modelMatrix);
+        // modelMatrix.scale(0.25, 0.7, 0.5);
+        // modelMatrix.translate(-0.5, 0, 0);
+        // drawCube(modelMatrix, [1,1,0,1]);
+        // modelMatrix.setIdentity();
+        
+        // // Test box
+        // modelMatrix = pitchCoordinatesMat;
+        // modelMatrix.translate(0, 0.65, 0);
+        // modelMatrix.rotate(-g_rollAngle, 0, 0, 1);
+        // modelMatrix.scale(0.3, 0.3, 0.3);
+        // modelMatrix.translate(-0.5, 0, -0.001);
+        // drawCube(modelMatrix, [1, 0, 1, 1]);
+        // modelMatrix.setIdentity();
+    }
 }
 
 function sendTextToHTML(text, htmlID) {
