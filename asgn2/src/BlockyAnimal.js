@@ -1,29 +1,65 @@
-// ColoredPoint.js (c) 2012 matsuda
+// BlockyAnimal.js
+
 // Vertex shader program
 let VSHADER_SOURCE = `
+    precision mediump float;
     attribute vec4 a_Position;
+    attribute vec4 a_Color;
+
     uniform mat4 u_ModelMatrix;
+    uniform mat4 u_GlobalRotateMatrix;
+
+    varying vec4 v_Color;
+
     void main() {
-        gl_Position = u_ModelMatrix * a_Position;
+        gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
+        v_Color = a_Color;
     }
 `;
 
 // Fragment shader program
 let FSHADER_SOURCE = `
     precision mediump float;
-    uniform vec4 u_FragColor;
+    varying vec4 v_Color;
+
     void main() {
-        gl_FragColor = u_FragColor;
+        gl_FragColor = v_Color;
     }
 `;
+// // Vertex shader program
+// let VSHADER_SOURCE = `
+//     attribute vec4 a_Position;
+
+//     uniform mat4 u_ModelMatrix;
+//     uniform mat4 u_GlobalRotateMatrix;
+
+//     void main() {
+//         gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
+//     }
+// `;
+
+// // Fragment shader program
+// let FSHADER_SOURCE = `
+//     precision mediump float;
+//     uniform vec4 u_FragColor;
+
+//     void main() {
+//         gl_FragColor = u_FragColor;
+//     }
+// `;
+
+// Color values
+const COLOR_BODY = [0.35, 0.2, 0.1, 1];
+const COLOR_BONE = [0.8, 0.8, 0.8, 1];
 
 // Global variables
 let canvas;
 let gl;
 let a_Position;
-let u_FragColor;
+let a_Color;
 let u_Size = 10.0;
 let u_ModelMatrix;
+let u_GlobalRotateMatrix;
 
 function setupWebGL() {
     // Retrieve <canvas> element
@@ -35,6 +71,8 @@ function setupWebGL() {
         console.log('Failed to get the rendering context for WebGL');
         return;
     }
+
+    gl.enable(gl.DEPTH_TEST);
 }
 
 function connectVariablesToGLSL() {
@@ -51,10 +89,9 @@ function connectVariablesToGLSL() {
         return;
     }
 
-    // Get the storage location of u_FragColor
-    u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
-    if (!u_FragColor) {
-        console.log('Failed to get the storage location of u_FragColor');
+    a_Color = gl.getAttribLocation(gl.program, 'a_Color');
+    if (a_Color < 0) {
+        console.log('Failed to get the storage location of a_Position');
         return;
     }
 
@@ -71,6 +108,13 @@ function connectVariablesToGLSL() {
         console.log('Failed to get the storage location of u_ModelMatrix');
         return;
     }
+    
+    // Get the storage location of u_GlobalRotateMatrix
+    u_GlobalRotateMatrix = gl.getUniformLocation(gl.program, 'u_GlobalRotateMatrix');
+    if (!u_GlobalRotateMatrix) {
+        console.log('Failed to get the storage location of u_GlobalRotateMatrix');
+        return;
+    }
 }
 
 // Type constants
@@ -82,41 +126,41 @@ const CIRCLE = 2;
 let g_selectedColor = [1.0, 1.0, 1.0, 1.0];
 let g_selectedSize = 5.0;
 let g_selectedType = POINT;
-let circleSegments = 10;
 
-// Mandala Mode global variables
-let mandalaMode = false;
-let mandalaSegments = 6;
+// Set default angle to make modeling easier
+let g_globalAngle = 0;
+// let g_globalAngle = 90;
+
+let g_yellowAngle = 0;
+let g_magentaAngle = 0;
+let g_yellowAnimation = false;
+let g_magentaAnimation = false;
 
 function addActionsForHtmlUI() {
-    // Clear canvas event
-    document.getElementById('clearButton').onclick = function() {g_shapesList = []; renderAllShapes();};
 
-    // Slider Events
-    document.getElementById('redSlide').addEventListener('mouseup', function() {g_selectedColor[0] = this.value/100});
-    document.getElementById('greenSlide').addEventListener('mouseup', function() {g_selectedColor[1] = this.value/100});
-    document.getElementById('blueSlide').addEventListener('mouseup', function() {g_selectedColor[2] = this.value/100});
-    
-    // Shape slider events
-    document.getElementById('sizeSlide').addEventListener('mouseup', function() {g_selectedSize = this.value});
-    document.getElementById('circlinessSlide').addEventListener('mouseup', function() {circleSegments = this.value});
-    
-    // Shape select events
-    document.getElementById('pointButton').onclick = function() {g_selectedType=POINT};
-    document.getElementById('triButton').onclick = function() {g_selectedType=TRIANGLE};
-    document.getElementById('circleButton').onclick = function() {g_selectedType=CIRCLE};
-    
-    // Bonus
-    document.getElementById('mandalaMode').onclick = toggleMandalaMode;
-    document.getElementById('mandalaSlide').addEventListener('mouseup', function() {mandalaSegments = this.value});
+    // Button events
+    document.getElementById('animationYellowOnButton').onclick = function() {g_yellowAnimation = true;};
+    document.getElementById('animationYellowOffButton').onclick = function() {g_yellowAnimation = false;};
+    document.getElementById('animationMagentaOnButton').onclick = function() {g_magentaAnimation = true;};
+    document.getElementById('animationMagentaOffButton').onclick = function() {g_magentaAnimation = false;};
+
+    // Joint movement sliders
+    document.getElementById('yellowSlide').addEventListener('mousemove', function() {g_yellowAngle = this.value; renderScene();});
+    document.getElementById('magentaSlide').addEventListener('mousemove', function() {g_magentaAngle = this.value; renderScene();});
+
+    // document.getElementById('angleSlide').addEventListener('mouseup', function() {g_globalAngle = this.value; renderScene(); });
+    document.getElementById('angleSlide').addEventListener('mousemove', function() {g_globalAngle = this.value; renderScene(); });
 }
 
 function main() {
+    // Set up canvas and gl variables
     setupWebGL();
+    // Set up GLSL shader programs and connect GLSL variables
     connectVariablesToGLSL();
+    
+    // Set up actions for HTML UI elements
     addActionsForHtmlUI();
-
-    // Register function (event handler) to be called on a mouse press
+    // Register event handlers for mouse events
     canvas.onmousedown = (ev) => {
         handleClicks(ev);
     };
@@ -125,82 +169,142 @@ function main() {
     // Specify the color for clearing <canvas>
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-    // Clear <canvas>
-    // gl.clear(gl.COLOR_BUFFER_BIT);
-    renderAllShapes();
+    // Start render
+    requestAnimationFrame(tick);
 }
 
-// Array of all shapes to render
-let g_shapesList = [];
+let g_startTime = performance.now() / 1000.0;
+let g_seconds = performance.now() / 1000.0 - g_startTime;
 
-function handleClicks(ev) {
-    // Extract coordinates from click event and return in WebGL-converted coordinates.
-    let [x, y] = convertCoordinatesEventToGL(ev);
+// Called by the browser repeatedly whenever it's time
+function tick() {
+    // Print some debug info
+    g_seconds=performance.now() / 1000.0 - g_startTime;
+    // console.log(performance.now());
 
-    // let point = new Point("point", [x, y, 0.0], g_selectedColor.slice(), g_selectedSize);
-    let point;
-    if (g_selectedType == POINT) {
-        point = new Point();
-    } else if (g_selectedType == TRIANGLE) {
-        point = new Triangle([x, y, 0.0], g_selectedColor, g_selectedSize);
-    } else {
-        point = new Circle(circleSegments);
-    }
-    point.position=[x,y];
-    point.color = g_selectedColor.slice();
-    point.size=g_selectedSize;
-    g_shapesList.push(point);
-    
-    if (mandalaMode) {
-       addMandalaPoints(point);
-    }
-    
-    // Draw every shape that is supposed to be in the canvas
-    renderAllShapes();
+    // Update Animation Angles
+    updateAnimationAngles();
+
+    // Draw everything
+    renderScene();
+
+    // Tell the browser to update again when it's time
+    requestAnimationFrame(tick);
 }
 
-// Extract event click and return WebGL-converted coordinates
-function convertCoordinatesEventToGL(ev) {
-    let x = ev.clientX; // x coordinate of a mouse pointer
-    let y = ev.clientY; // y coordinate of a mouse pointer
-    let rect = ev.target.getBoundingClientRect();
+// Update the angles of everything if currently animated
+function updateAnimationAngles() {
+    if (g_yellowAnimation) {
+        g_yellowAngle = 45 * Math.sin(g_seconds);
+    }
+    if (g_magentaAnimation) {
+        g_magentaAngle = 45 * Math.sin(3*g_seconds);
+    }
 
-    x = (x - rect.left - canvas.width / 2) / (canvas.width / 2);
-    y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
-    return [x, y];
+}
+
+function drawCube(mat, color) {
+    let newCube = new Cube();
+    newCube.matrix = mat;
+    newCube.color = color;
+    newCube.render();
 }
 
 // Draw every shape that is supposed to be in the canvas
-function renderAllShapes() {
+function renderScene() {
 
     // Uncomment for performance testing
-    // var startTime = performance.now();
     var startTime = performance.now();
     
     // Clear <canvas>
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Draw a test triangle
-    drawTriangle3D([-1.0, 0.0, 0.0,    -0.5, -1.0, 0.0,    0.0, 0.0, 0.0]);
+    // Pass the matrix to u_GlobalRotateMatrix attribute
+    let globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1, 0);
+    gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
+    
+    drawBat();
+    // let modelMatrix = new Matrix4();
 
-    // Draw a cube
-    let body = new Cube();
-    body.color = [1.0, 0.0, 0.0, 1.0];
-    body.matrix.setTranslate(-0.25, -0.5, 0.0);
-    body.matrix.scale(0.5, 1.0, 0.5);
-    body.render();
+    // modelMatrix.setTranslate(-0.25, -0.75, 0);
+    // modelMatrix.scale(0.5, 0.3, 0.5);
+    // // Draw the body cube
+    // drawCube(modelMatrix, COLOR_BODY);
 
-    // Draw a left arm
-    var leftArm = new Cube();
-    leftArm.color = [1.0, 1.0, 0.0, 1.0];
-    leftArm.matrix.setTranslate(0.7, 0.0, 0.0);
-    leftArm.matrix.rotate(45, 0, 0, 1);
-    leftArm.matrix.scale(0.25, 0.7, 0.5);
-    leftArm.render();
+    // // Draw a left arm
+    // modelMatrix.setTranslate(0, -0.5, 0);
+    // modelMatrix.rotate(-5, 1, 0, 0);
+    // modelMatrix.rotate(-g_yellowAngle, 0, 0, 1);
+    // let yellowCoordinatesMat = new Matrix4(modelMatrix);
+    // modelMatrix.scale(0.25, 0.7, 0.5);
+    // modelMatrix.translate(-0.5, 0, 0);
+    // drawCube(modelMatrix, [1,1,0,1]);
+
+    // // Test box
+    // modelMatrix = yellowCoordinatesMat;
+    // modelMatrix.translate(0, 0.65, 0);
+    // modelMatrix.rotate(-g_magentaAngle, 0, 0, 1);
+    // modelMatrix.scale(0.3, 0.3, 0.3);
+    // modelMatrix.translate(-0.5, 0, -0.001);
+    // drawCube(modelMatrix, [1, 0, 1, 1]);
 
     // Uncomment for performance testing 
-    // var duration = performance.now() - startTime;
-    // sendTextToHTML("numdot: " + len + " ms: " + Math.floor(duration) + " fps: " + Math.floor(10000/duration)/10, "numdot");
+    var duration = performance.now() - startTime;
+    sendTextToHTML("FPS: " + Math.floor(10000/duration)/10, "numdot");
+}
+
+function drawBat() {
+    let modelMatrix = new Matrix4();
+    
+    // Draw the skeleton
+    // modelMatrix.translate(0, -0.5, 0);
+    modelMatrix.rotate(-g_yellowAngle, 1, 0, 0);
+    modelMatrix.scale(0.08, 0.08, 1);
+    modelMatrix.translate(-0.5, -0.5, -0.5);
+    let bodyCoordinateMat = new Matrix4(modelMatrix);
+    drawCube(modelMatrix, COLOR_BONE);
+    modelMatrix.rotate(90, 0, 1, 0);
+    modelMatrix.translate(-0.05, 0, -0.25);
+    modelMatrix.scale(0.08, 0.08, 0.5);
+    modelMatrix = bodyCoordinateMat;
+    // modelMatrix.scale(0.3, 0.03, 0.4);
+    modelMatrix.translate(-0.15, 0.1255, -0.2);
+    // drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
+
+    // // Draw the body
+    // modelMatrix.translate(0, -0.125, 0);
+    // modelMatrix.rotate(90, 0, 1, 0);
+    // modelMatrix.rotate(-g_yellowAngle, 0, 0, 1);
+    // modelMatrix.translate(-0.2, 0, -0.25);
+    // modelMatrix.scale(0.5, 0.25, 0.4);
+    // let bodyCoordinateMat = new Matrix4(modelMatrix);
+    // drawCube(modelMatrix, COLOR_BODY);
+    // modelMatrix = bodyCoordinateMat;
+    // modelMatrix.scale(0.8, 0.2, 0.8);
+    // modelMatrix.translate(0.125, 5, 0.125);
+    // drawCube(modelMatrix, COLOR_BONE);
+    // modelMatrix.setIdentity();
+    
+    // // Draw a left arm
+    // modelMatrix.translate(0, -0.5, 0);
+    // // modelMatrix.rotate(-5, 1, 0, 0);
+    // modelMatrix.rotate(-g_yellowAngle, 0, 0, 1);
+    // let yellowCoordinatesMat = new Matrix4(modelMatrix);
+    // modelMatrix.scale(0.25, 0.7, 0.5);
+    // modelMatrix.translate(-0.5, 0, 0);
+    // drawCube(modelMatrix, [1,1,0,1]);
+    // modelMatrix.setIdentity();
+    
+    // // Test box
+    // modelMatrix = yellowCoordinatesMat;
+    // modelMatrix.translate(0, 0.65, 0);
+    // modelMatrix.rotate(-g_magentaAngle, 0, 0, 1);
+    // modelMatrix.scale(0.3, 0.3, 0.3);
+    // modelMatrix.translate(-0.5, 0, -0.001);
+    // drawCube(modelMatrix, [1, 0, 1, 1]);
+    // modelMatrix.setIdentity();
 }
 
 function sendTextToHTML(text, htmlID) {
@@ -209,166 +313,4 @@ function sendTextToHTML(text, htmlID) {
         console.log("Failed to get " + htmlID + " from HTML");
     }
     htmlEle.innerHTML = text;
-}
-
-// convert canvas coordinates to WebGL coordinates
-function convertToGLCoordinates(x, y, z = 0.0) {
-    x = (x - canvas.width / 2) / (canvas.width / 2);
-    y = (canvas.height / 2 - y) / (canvas.height / 2);
-    return [x, y, z];
-}
-
-function cookBreakfast() {
-    // table
-    let table = [
-        [-1.0, 1.0, -1.0, -1.0, 1.0, 1.0],
-        [1.0, 1.0, -1.0, -1.0, 1.0, -1.0],
-    ]
-
-    let utensils = [
-        // Fork
-        [-0.7, 0.5, -0.7, 0.3, -0.65, 0.3],
-        [-0.65, 0.5, -0.65, 0.3, -0.6, 0.3],
-        [-0.6, 0.5, -0.6, 0.3, -0.55, 0.3],
-        [-0.7, 0.3, -0.7, 0.2, -0.55, 0.3],
-        [-0.55, 0.3, -0.7, 0.2, -0.55, 0.2,],
-        [-0.7, 0.2, -0.65, 0.1, -0.6, 0.1],
-        [ -0.7, 0.2, -0.6, 0.1, -0.55, 0.2],
-        [-0.65, 0.1, -0.6, 0.1, -0.6, -0.3],
-        [-0.65, 0.1, -0.65, -0.28, -0.6, -0.28],
-        
-        // Spoons
-        [-0.95, -0.25, -1.0, -0.3, -0.9, -0.3],
-        [-1.0, -0.35, -0.9, -0.35, -0.95, -0.4],
-        [-1.0, -0.3, -1.0, -0.35, -0.6, -0.3],
-        [-0.6, -0.3, -1.0, -0.35, -0.6, -0.35],
-        
-        [0.95, -0.25, 0.9, -0.3, 1.0, -0.3],
-        [1.0, -0.35, 0.95, -0.4, 0.9, -0.35],
-        [1.0, -0.3, 0.6, -0.3, 1.0, -0.35],
-        [0.6, -0.3, 0.6, -0.35, 1.0, -0.35],
-        
-        // Knife
-        [0.6, 0.6, 0.6, 0.3, 0.7, 0.4],
-        [0.7, 0.4, 0.6, 0.3, 0.7, 0.3],
-        [0.6, 0.3, 0.6, 0.1, 0.65, 0.1],
-        [0.6, 0.3, 0.65, 0.1, 0.7, 0.3],
-        [0.6, 0.1, 0.6, -0.28, 0.65, 0.1],
-        [0.65, 0.1, 0.6, -0.28, 0.65, -0.28],
-    ];
-
-    let plate = [
-        // Plate
-        [-0.4, 0.4, -0.4, -0.3, 0.4, 0.4],
-        [-0.4, -0.3, 0.4, 0.4, 0.4, -0.3],
-        
-        [-0.2, 0.5, -0.4, 0.4, -0.2, 0.4],
-        [-0.2, 0.5, -0.2, 0.4, 0.2, 0.5],
-        [0.2, 0.5, -0.2, 0.4, 0.4, 0.4],
-        
-        [-0.4, 0.4, -0.5, 0.2, -0.4, -0.1],
-        [-0.5, 0.2, -0.5, -0.1, -0.4, -0.1],
-        [-0.5, -0.1, -0.4, -0.3, -0.4, -0.1],
-
-        [-0.4, -0.3, -0.2, -0.4, -0.2, -0.3],
-        [-0.2, -0.3, -0.2, -0.4, 0.2, -0.4],
-        [-0.2, -0.3, 0.2, -0.4, 0.4, -0.3],
-
-        [0.4, 0.4, 0.4, -0.1, 0.5, 0.2],
-        [0.5, 0.2, 0.4, -0.1, 0.5, -0.1],
-        [0.4, -0.1, 0.4, -0.3, 0.5, -0.1]
-    ];
-
-    // Bacon
-    let bacon = [
-        [-0.25, 0.4, -0.2, 0.2, -0.2, 0.4],
-        [-0.2, 0.4, -0.25, 0.0, -0.15, 0.2],
-        [-0.2, 0.2, -0.3, 0.0, -0.25, 0.0],
-        [-0.3, 0.0, -0.3, -0.2, -0.25, 0.0],
-        [-0.3, 0.0, -0.35, -0.2, -0.3, -0.2],
-
-        [-0.15, 0.4, -0.1, 0.2, -0.1, 0.4],
-        [-0.1, 0.4, -0.15, 0.0, -0.05, 0.2],
-        [-0.1, 0.2, -0.2, 0.0, -0.15, 0.0],
-        [-0.2, -0.0, -0.2, -0.2, -0.15, -0.2],
-        [-0.2, 0.0, -0.15, -0.2, -0.15, 0.0],
-    ];
-
-    // Egg whites
-    let eggWhites = [
-        [0.1, 0.3, 0.0, 0.2, 0.1, 0.0],
-        [0.0, 0.2, 0.0, 0.1, 0.1, 0.0],
-        [0.1, 0.3, 0.1, -0.1, 0.2, 0.3],
-        [0.2, 0.3, 0.1, -0.1, 0.2, -0.2],
-        [0.2, 0.3, 0.1, -0.1, 0.2, -0.1], 
-        [0.2, 0.3, 0.2, -0.2, 0.3, -0.2],
-        [0.2, 0.3, 0.3, -0.2, 0.3, 0.2],
-        [0.3, 0.1, 0.3, -0.2, 0.4, -0.1],
-        [0.3, 0.1, 0.4, 0.0, 0.4, -0.1]
-    ]
-
-    // Egg yolk
-    let eggYolks = [
-        [0.15, 0.22, 0.1, 0.15, 0.15, 0.1],
-        [0.15, 0.22, 0.15, 0.1, 0.22, 0.15],
-        [0.23, 0.01, 0.2, -0.05, 0.32, -0.03],
-        [0.2, -0.05, 0.25, -0.1, 0.32, -0.03],
-    ]
-    
-    let tableColor = [0.73, 0.55, 0.39, 1.0];
-    let utensilsColor = [0.75, 0.75, 0.75, 1.0];
-    let plateColor = [0.68, 0.88, 0.82, 1.0];
-    let baconColor = [0.62, 0.07, 0.07, 1.0];
-    let eggWhitesColor = [0.93, 0.92, 0.87, 1.0];
-    let eggYolksColor = [1.0, 0.8, 0.37, 1.0];
-
-    // Add every triangle in drawing to shapes List
-    table.forEach((tri) => { g_shapesList.push(new Triangle(tri, tableColor))});
-    utensils.forEach((tri) => { g_shapesList.push(new Triangle(tri, utensilsColor))});
-    plate.forEach((tri) => { g_shapesList.push(new Triangle(tri, plateColor))});
-    bacon.forEach((tri) => { g_shapesList.push(new Triangle(tri, baconColor))});
-    eggWhites.forEach((tri) => { g_shapesList.push(new Triangle(tri, eggWhitesColor))});
-    eggYolks.forEach((tri) => { g_shapesList.push(new Triangle(tri, eggYolksColor))});
-
-    // gl.uniform4f(u_FragColor, 0.73, 0.55, 0.39, 1.0);
-    // table.forEach((tri) => {drawTriangle(tri)});
-    // gl.uniform4f(u_FragColor, 0.75, 0.75, 0.75, 1.0);
-    // utensils.forEach((tri) => {drawTriangle(tri)});
-
-    // gl.uniform4f(u_FragColor, 0.68, 0.88, 0.82, 1.0);
-    // plate.forEach((tri) => {drawTriangle(tri)});
-
-    // gl.uniform4f(u_FragColor, 0.62, 0.07, 0.07, 1.0);
-    // bacon.forEach((tri) => {drawTriangle(tri)});
-
-    // gl.uniform4f(u_FragColor, 0.93, 0.92, 0.87, 1.0);
-    // eggWhites.forEach((tri) => {drawTriangle(tri)});
-
-    // gl.uniform4f(u_FragColor, 1.0, 0.8, 0.37, 1.0);
-    // eggYolks.forEach((tri) => {drawTriangle(tri)});
-    renderAllShapes();
-}
-
-function toggleMandalaMode() {
-    mandalaMode = !mandalaMode;
-}
-
-// Takes a Point object and adds n reflected points (about the origin) to g_shapesList to be rendered
-function addMandalaPoints(point) {
-    // Calculate points
-    let x = point.position[0];
-    let y = point.position[1];
-
-    let angleStep = 360/mandalaSegments;
-    for (let angle = 0; angle < 360; angle += angleStep) {
-        let reflectedPoint = Object.assign(Object.create(Object.getPrototypeOf(point)), point);
-
-        // Reflect around origin
-        
-        let reflectionAngle = angle + angleStep;
-        reflectedPoint.position = [
-            x * Math.cos(reflectionAngle * Math.PI/180) - y * Math.sin(reflectionAngle * Math.PI/180),
-            x * Math.sin(reflectionAngle * Math.PI/180) + y * Math.cos(reflectionAngle * Math.PI/180)];
-        g_shapesList.push(reflectedPoint);
-    }
 }
