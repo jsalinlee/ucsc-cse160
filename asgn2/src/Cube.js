@@ -78,5 +78,5 @@ function drawTriangle3D(vertices) {
   // Enable the assignment to a_Position variable
   gl.enableVertexAttribArray(a_Position);
 
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 3);
 }

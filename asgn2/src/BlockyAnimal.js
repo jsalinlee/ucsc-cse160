@@ -167,7 +167,13 @@ function addActionsForHtmlUI() {
     document.getElementById('rUpArmSlide').addEventListener(
         'mousemove', function() {g_rUpArmAngle = this.value; renderScene();});
     document.getElementById('rLowArmSlide').addEventListener(
-        'mousemove', function() {g_rUpArmAngle = this.value; renderScene();});
+        'mousemove', function() {g_rLowArmAngle = this.value; renderScene();});
+    document.getElementById('rOuterFingerSlide').addEventListener(
+        'mousemove', function() {g_rOuterFingerAngle = this.value; renderScene();});
+    document.getElementById('rMidFingerSlide').addEventListener(
+        'mousemove', function() {g_rMidFingerAngle = this.value; renderScene();});
+    document.getElementById('rInnerFingerSlide').addEventListener(
+        'mousemove', function() {g_rInnerFingerAngle = this.value; renderScene();});
     
     // Camera movement slider
     document.getElementById('angleSlide').addEventListener(
@@ -224,7 +230,7 @@ function updateAnimationAngles() {
     }
     if (g_flyingAnimation) {
         // Body
-        g_pitchAngle = -5 * Math.sin(2*g_seconds);
+        // g_pitchAngle = -5 * Math.sin(2*g_seconds);
 
         // Left wing
         g_lUpArmAngle = 30 * Math.sin(2*g_seconds) - 30 + 30 * Math.cos(2*g_seconds);
@@ -234,13 +240,25 @@ function updateAnimationAngles() {
         g_lInnerFingerAngle = 45 * Math.sin(2*g_seconds);
 
         // Right wing
-        g_rUpArmAngle = 45 * Math.sin(2*g_seconds);
-        g_rLowArmAngle = 45 * Math.sin(2*g_seconds);
-        g_rHAngle = 45 * Math.sin(2*g_seconds);
+        g_rUpArmAngle = 30 * Math.sin(2*g_seconds) - 30 + 30 * Math.cos(2*g_seconds);
+        g_rLowArmAngle = -30 * Math.sin(2*g_seconds);
+        g_rOuterFingerAngle = 45 * Math.sin(2*g_seconds);
+        g_rMidFingerAngle = 45 * Math.sin(2*g_seconds);
+        g_rInnerFingerAngle = 45 * Math.sin(2*g_seconds);
+        // g_rUpArmAngle = 45 * Math.sin(2*g_seconds);
+        // g_rLowArmAngle = 45 * Math.sin(2*g_seconds);
+        // g_rHAngle = 45 * Math.sin(2*g_seconds);
     }
 }
 
 function drawCube(mat, color) {
+    let newCube = new Cube();
+    newCube.matrix = mat;
+    newCube.color = color;
+    newCube.render();
+}
+
+function drawStichedCube(mat, color) {
     let newCube = new Cube();
     newCube.matrix = mat;
     newCube.color = color;
@@ -277,15 +295,30 @@ function drawBat() {
     // Head
     modelMatrix.translate(0, 0.1, -0.01);
     modelMatrix.rotate(-30, 1, 0, 0);
+    let headCoordinates = new Matrix4(modelMatrix);
     modelMatrix.scale(0.05, 0.05, 0.1);
     modelMatrix.translate(-0.5, -0.5, -2.5);
     modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
     drawCube(modelMatrix, COLOR_BODY);
     modelMatrix.setIdentity();
-
-    // headMat.scale()
-
-
+    
+    // Ears
+    modelMatrix = new Matrix4(headCoordinates);
+    modelMatrix.scale(0.075, 0.09, 0.05);
+    modelMatrix.translate(0.55, 0.5, -4);
+    modelMatrix.rotate(15, 1, 0, -1);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
+    // Ears
+    modelMatrix = new Matrix4(headCoordinates);
+    modelMatrix.scale(0.075, 0.09, 0.05);
+    modelMatrix.translate(-1.5, 0.3, -4);
+    modelMatrix.rotate(15, 1, 0, 1);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
+    
     // Shoulders
     let shoulderMat = new Matrix4();
     shoulderMat.scale(0.24, 0.06, 0.06);
@@ -317,7 +350,7 @@ function drawBat() {
     drawCube(modelMatrix, COLOR_BONE);
     modelMatrix.setIdentity();
     
-    // Left lower arm better?
+    // Left lower arm
     modelMatrix = new Matrix4(upperLArmCoordinates);
     modelMatrix.translate(0.15, -0.02, 0);
     modelMatrix.rotate(120, 0, 1, 0);
@@ -328,7 +361,7 @@ function drawBat() {
     modelMatrix.scale(0.3, 0.05, 0.05);
     modelMatrix.translate(0, 0, -1);
     modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BONE);
+    drawCube(modelMatrix, COLOR_BODY);
     modelMatrix.setIdentity();
     
     // Left outer finger
@@ -340,7 +373,7 @@ function drawBat() {
     modelMatrix.translate(0, 0.3, 0);
     let lOuterFingerCoordinates = new Matrix4(modelMatrix);
     modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BONE);
+    drawCube(modelMatrix, COLOR_BODY);
     modelMatrix.setIdentity();
     
     // Left middle finger
@@ -353,7 +386,7 @@ function drawBat() {
     modelMatrix.translate(0, 0.3, 0);
     let lMidFingerCoordinates = new Matrix4(modelMatrix);
     modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BONE);
+    drawCube(modelMatrix, COLOR_BODY);
     modelMatrix.setIdentity();
     
     // Left inner finger
@@ -365,14 +398,15 @@ function drawBat() {
     modelMatrix.translate(0, 0.3, 0);
     let lInnerFingerCoordinates = new Matrix4(modelMatrix);
     modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BONE);
+    drawCube(modelMatrix, COLOR_BODY);
     modelMatrix.setIdentity();
-
+    
     // Right arm
     // Right upper arm
     modelMatrix.translate(-0.12, 0, -0.05);
-    modelMatrix.rotate(225, 0, 1, 0);
-    modelMatrix.rotate(-g_rUpArmAngle, 0, 1, 0);
+    modelMatrix.rotate(180, 0, 1, 0);
+    modelMatrix.rotate(g_rUpArmAngle - 30, 0, -1, 0);
+    modelMatrix.rotate(g_rUpArmAngle, 0, 0, -1);
     let upperRArmCoordinates = new Matrix4(modelMatrix);
     modelMatrix.scale(0.15, 0.05, 0.05);
     modelMatrix.translate(0, -0.5, -0.5);
@@ -380,21 +414,75 @@ function drawBat() {
     drawCube(modelMatrix, COLOR_BONE);
     modelMatrix.setIdentity();
     
-    // let leftUpArmCoordinateMat = new Matrix4(modelMatrix);
-    // modelMatrix.setIdentity();
-    // modelMatrix.rotate(g_leftUpArmAngle, 0, 1, 0);
-    // modelMatrix = modelMatrix.multiply(leftUpArmCoordinateMat);
-    // modelMatrix.translate(1.5, 0, 0);
-    // drawCube(modelMatrix, COLOR_BODY);
+    // Right lower arm
+    modelMatrix = new Matrix4(upperRArmCoordinates);
+    modelMatrix.translate(0.12, -0.02, -0.01);
+    modelMatrix.rotate(240, 0, 1, 0);
+    modelMatrix.rotate(g_rLowArmAngle, 0, -1, 0);
+    modelMatrix.rotate(g_rLowArmAngle, 0, 0, 1.5);
+    modelMatrix.scale(0.7, 0.7, 0.7);
+    let lowerRArmCoordinates = new Matrix4(modelMatrix);
+    modelMatrix.scale(0.3, 0.05, 0.05);
+    modelMatrix.translate(0, 0, -1);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
     
-    // modelMatrix = new Matrix4(bodyCoordinateMat);
-    // modelMatrix.translate(-0.1, 0, -0.05);
-    // modelMatrix.rotate(225, 0, 1, 0);
-    // modelMatrix.rotate(-g_rightUpArmAngle, 0, 1, 0);
-    // modelMatrix.scale(0.1, 0.06, 0.06);
-    // modelMatrix.translate(0, -0.5, -0.5);
-    // drawCube(modelMatrix, COLOR_BODY);
+    // Right outer finger
+    modelMatrix = new Matrix4(lowerRArmCoordinates);
+    modelMatrix.translate(0.25, 0, -0.02);
+    modelMatrix.rotate(60, 0, 1, 0);
+    modelMatrix.rotate(g_rOuterFingerAngle, 0, -1, 0);
+    modelMatrix.scale(0.7, 0.03, 0.03);
+    modelMatrix.translate(0, 0.3, 0);
+    let rOuterFingerCoordinates = new Matrix4(modelMatrix);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
+    
+    // Right middle finger
+    modelMatrix = new Matrix4(lowerRArmCoordinates);
+    modelMatrix.translate(0.3, 0, 0);
+    modelMatrix.rotate(90, 0, 1, 0);
+    modelMatrix.rotate(g_rMidFingerAngle/2, 0, -1, 1);
+    modelMatrix.scale(0.5, 0.03, 0.03);
+    modelMatrix.translate(0, 0.3, -1);
+    let rMidFingerCoordinates = new Matrix4(modelMatrix);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
+    
+    // Right inner finger
+    modelMatrix = new Matrix4(lowerRArmCoordinates);
+    modelMatrix.translate(0.3, 0, 0);
+    modelMatrix.rotate(120, 0, 1, 0);
+    modelMatrix.rotate(g_rInnerFingerAngle / 3, 0, -1, 0);
+    modelMatrix.scale(0.45, 0.03, 0.03);
+    modelMatrix.translate(0.1, 0.3, -0.4);
+    let rInnerFingerCoordinates = new Matrix4(modelMatrix);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
+    
+    // Left leg
+    modelMatrix.translate(0.05, 0, 0.2);
+    modelMatrix.rotate(15, 0.8, 1, 0);
+    let upperLLegCoordinates = new Matrix4(modelMatrix);
+    modelMatrix.scale(0.05, 0.05, 0.15);
+    modelMatrix.translate(0, -0.6, -0.44);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
 
+    // Right leg
+    modelMatrix.translate(-0.1, 0, 0.2);
+    modelMatrix.rotate(-15, -0.8, 1, 0);
+    let upperRLegCoordinates = new Matrix4(modelMatrix);
+    modelMatrix.scale(0.05, 0.05, 0.15);
+    modelMatrix.translate(0, -0.6, -0.5);
+    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+    drawCube(modelMatrix, COLOR_BODY);
+    modelMatrix.setIdentity();
     
     if (!g_showSkeleton) {
 
@@ -418,39 +506,33 @@ function drawBat() {
         modelMatrix.scale(0.25, 0.07, 0.07);
         modelMatrix.translate(-0.5, -0.5, -1.2);
         modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-
         drawCube(modelMatrix, COLOR_BODY);
         modelMatrix.setIdentity();
 
+        // Left arm
+        // Left upper arm
+        modelMatrix.translate(0.12, 0, -0.05);
+        modelMatrix.rotate(g_lUpArmAngle - 30, 0, 1, 0);
+        modelMatrix.rotate(g_lUpArmAngle, 0, 0, -1);
+        let upperLArmCoordinates = new Matrix4(modelMatrix);
+        modelMatrix.scale(0.152, 0.06, 0.06);
+        modelMatrix.translate(-0.01, -0.5, -0.5);
+        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+        drawCube(modelMatrix, COLOR_BODY);
+        modelMatrix.setIdentity();
 
-        // modelMatrix = spineMat;
-        // modelMatrix.scale(1.5, 1.5, 1.5);
-        // // modelMatrix.translate(-0.5, -0.5, -0.5);
-        // drawCube(modelMatrix, COLOR_BODY);
-        // modelMatrix = bodyCoordinateMat;
-        // modelMatrix.scale(0.8, 0.2, 0.8);
-        // modelMatrix.translate(0.125, 5, 0.125);
-        // drawCube(modelMatrix, COLOR_BONE);
-        // modelMatrix.setIdentity();
-        
-        // // Draw a left arm
-        // modelMatrix.translate(0, -0.5, 0);
-        // // modelMatrix.rotate(-5, 1, 0, 0);
-        // modelMatrix.rotate(-g_pitchAngle, 0, 0, 1);
-        // let pitchCoordinatesMat = new Matrix4(modelMatrix);
-        // modelMatrix.scale(0.25, 0.7, 0.5);
-        // modelMatrix.translate(-0.5, 0, 0);
-        // drawCube(modelMatrix, [1,1,0,1]);
-        // modelMatrix.setIdentity();
-        
-        // // Test box
-        // modelMatrix = pitchCoordinatesMat;
-        // modelMatrix.translate(0, 0.65, 0);
-        // modelMatrix.rotate(-g_rollAngle, 0, 0, 1);
-        // modelMatrix.scale(0.3, 0.3, 0.3);
-        // modelMatrix.translate(-0.5, 0, -0.001);
-        // drawCube(modelMatrix, [1, 0, 1, 1]);
-        // modelMatrix.setIdentity();
+        // Right arm
+        // Right upper arm
+        modelMatrix.translate(-0.12, 0, -0.05);
+        modelMatrix.rotate(180, 0, 1, 0);
+        modelMatrix.rotate(g_rUpArmAngle - 30, 0, -1, 0);
+        modelMatrix.rotate(g_rUpArmAngle, 0, 0, -1);
+        let upperRArmCoordinates = new Matrix4(modelMatrix);
+        modelMatrix.scale(0.152, 0.06, 0.06);
+        modelMatrix.translate(0, -0.5, -0.5);
+        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
+        drawCube(modelMatrix, COLOR_BODY);
+        modelMatrix.setIdentity();
     }
 }
 
