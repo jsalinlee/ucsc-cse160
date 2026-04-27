@@ -71,11 +71,6 @@ let g_flyingAnimation = false;
 let g_showSkeleton = false;
 // ------- End global variables ------------------
 
-// Development initialization values
-// Set default angle to make modeling easier
-g_globalAngle = 180;
-g_pitchAngle = -90;
-
 function setupWebGL() {
     // Retrieve <canvas> element
     canvas = document.getElementById('webgl');
