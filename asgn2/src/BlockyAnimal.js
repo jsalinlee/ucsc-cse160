@@ -523,8 +523,8 @@ function drawBat() {
         modelMatrix.rotate(g_rUpArmAngle - 30, 0, -1, 0);
         modelMatrix.rotate(g_rUpArmAngle, 0, 0, -1);
         let upperRArmCoordinates = new Matrix4(modelMatrix);
-        modelMatrix.scale(0.152, 0.06, 0.06);
-        modelMatrix.translate(0, -0.5, -0.5);
+        modelMatrix.scale(0.155, 0.06, 0.06);
+        modelMatrix.translate(-0.02, -0.5, -0.5);
         modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
         drawCube(modelMatrix, COLOR_BODY);
         modelMatrix.setIdentity();
