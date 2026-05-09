@@ -1,0 +1,88 @@
+<!-- Jonathan Salin Lee -->
+<!-- jlee1123@ucsc.edu -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bat stuff</title>
+    <link rel="stylesheet", href="styles.css">
+  </head>
+
+  <body onload="main()">
+    <canvas id="webgl" width="400" height="400">
+    Please use a browser that supports "canvas"
+    </canvas>
+
+    <!-- Uncomment for performance testing -->
+    <p id="numdot"></p>
+
+    <div class="joint-controls">
+        <div class="control-panel-item">
+            <label>Pitch</label>
+                <input type="range" min="-90" max="90" value="0" class="slider" id="pitchSlide">
+            <label>Animation:</label>
+                <button type="button" id="animationPitchOnButton">ON</button>
+                <button type="button" id="animationPitchOffButton">OFF</button>
+        </div>
+        <div class="control-panel-item">
+            <label>Roll</label>
+                <input type="range" min="0" max="360" value="0" class="slider" id="rollSlide">
+            <label>Animation:</label>
+                <button type="button" id="animationRollOnButton">ON</button>
+                <button type="button" id="animationRollOffButton">OFF</button>
+        </div>
+        <div class="control-panel-item">
+            <p>
+                <label>Left upper arm:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="lUpArmSlide">
+            </p>
+            <p>
+                <label>Left lower arm:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="lLowArmSlide">
+            </p>
+            <p>
+                <label>Left outer finger:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="lOuterFingerSlide">
+            </p>
+            <p>
+                <label>Left middle finger:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="lMidFingerSlide">
+            </p>
+            <p>
+                <label>Left inner finger:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="lInnerFingerSlide">
+            </p>
+            <p>
+                <label>Right upper arm:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="rUpArmSlide">
+            </p>
+            <p>
+                <label>Right lower arm:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="rLowArmSlide">
+            </p>
+            <p>
+                <label>Right outer finger:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="rOuterFingerSlide">
+            </p>
+            <p>
+                <label>Right middle finger:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="rMidFingerSlide">
+            </p>
+            <p>
+                <label>Right inner finger:</label> <input type="range" min="-45" max="45" value="0" class="slider" id="rInnerFingerSlide">
+            </p>
+        <div>
+                <label>Fly away:</label>
+                    <button type="button" id="animationFlightOnButton">ON</button>
+                    <button type="button" id="animationFlightOffButton">OFF</button>
+            </div>
+        </div>
+        <div class="control-panel-item">
+            Camera Angle <input type="range" min="0", max="360" value="0" class="slider" id="angleSlide">
+        </div>
+        <div>
+            <label>Show Bone Structure:</label>
+        </div>
+        <input type="checkbox" id="toggleShowSkeleton">
+    </div>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/cuon-matrix-cse160.js"></script>
+    <script src="./Triangle.js"></script>
+    <script src="./Cube.js"></script>
+    <script src="./Pyramid.js"></script>
+    <script src="./BlockyWorld.js"></script>
+  </body>
+</html>
