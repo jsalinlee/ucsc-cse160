@@ -75,7 +75,6 @@ class Camera {
     }
 
     panLeft() {
-        console.log(this.at);
         let f = new Vector3();
         f.set(this.at);
         f.sub(this.eye);

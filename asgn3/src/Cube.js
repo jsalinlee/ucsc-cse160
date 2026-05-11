@@ -104,11 +104,4 @@ class Cube {
 
         drawTriangle3DUV(allVerts);
     }
-
-    drawCube(mat, color = [1,1,1,1]) {
-        let newCube = new Cube();
-        newCube.matrix = mat;
-        newCube.color = color;
-        newCube.render();
-    }
 }
