@@ -8,9 +8,11 @@ let VSHADER_SOURCE = `
 
     uniform mat4 u_ModelMatrix;
     uniform mat4 u_GlobalRotateMatrix;
+    uniform mat4 u_ViewMatrix;
+    uniform mat4 u_ProjectionMatrix;
 
     void main() {
-        gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
+        gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
         v_UV = a_UV;
     }
 `;
@@ -18,20 +20,32 @@ let VSHADER_SOURCE = `
 // Fragment shader program
 let FSHADER_SOURCE = `
     precision mediump float;
+
     varying vec2 v_UV;
     uniform vec4 u_FragColor;
+    uniform float u_TexColorWeight;
+
     uniform sampler2D u_Sampler0;
-    uniform int u_whichTexture;
+    uniform sampler2D u_Sampler1;
+
+    uniform int u_WhichTexture;
+
+    vec4 texColor = vec4(0, 0, 0, 0.5);
+    vec4 baseColor = vec4(1.0, 1.0, 1.0, 1.0);
+
     void main() {
-        if (u_whichTexture == -2) {
-            gl_FragColor = u_FragColor; // Use color
-        } else if (u_whichTexture == -1) {
-            gl_FragColor = vec4(v_UV, 1.0, 1.0); // Use UV debug color
-        } else if (u_whichTexture == 0) {
-            gl_FragColor = texture2D(u_Sampler0, v_UV); // Use texture0
+        if (u_WhichTexture == -2) {
+            baseColor = u_FragColor; // Use color
+        } else if (u_WhichTexture == -1) {
+            baseColor = vec4(v_UV, 1.0, 1.0); // Use UV debug color
+        } else if (u_WhichTexture == 0) {
+            texColor = texture2D(u_Sampler0, v_UV); // Use texture0
+        } else if (u_WhichTexture == 1) { 
+            texColor = texture2D(u_Sampler1, v_UV); // Use texture1
         } else {
-            gl_FragColor = vec4(1, 0.2, 0.2, 1); // Error, put Redish
+            baseColor = vec4(1, 0.2, 0.2, 1); // Error, put Redish
         }
+        gl_FragColor = (1.0 - u_TexColorWeight) * baseColor + u_TexColorWeight * texColor;
     }
 `;
 
@@ -41,21 +55,31 @@ const COLOR_BONE = [0.8, 0.8, 0.8, 1];
 
 // ------- Global variables ------------------
 // WebGL variables
+// Vertex shader
 let canvas;
 let gl;
 let a_Position;
 let a_UV;
 let u_ModelMatrix;
 let u_GlobalRotateMatrix;
+let u_ViewMatrix;
+let u_ProjectionMatrix;
+
+// Fragment shader
 let u_FragColor;
+let u_TexColorWeight;
 let u_Sampler0;
-let u_whichTexture;
+let u_Sampler1;
+let u_WhichTexture;
 
 // Shape type constants
 const POINT = 0;
 const TRIANGLE = 1;
 const CIRCLE = 2;
+const CUBE = 3;
 
+// Camera
+let g_camera;
 
 // Angle variables
 // Camera angles
@@ -123,19 +147,6 @@ function connectVariablesToGLSL() {
         return;
     }
 
-    u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
-    if (u_FragColor < 0) {
-        console.log('Failed to get the storage location of a_Position');
-        return;
-    }
-
-    // Get the storage location of u_Size
-    u_Size = gl.getUniformLocation(gl.program, 'u_Size');
-    if (u_Size < 0) {
-        console.log('Failed to get the storage location of u_Size');
-        return;
-    }
-
     // Get the storage location of u_ModelMatrix
     u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
     if (!u_ModelMatrix) {
@@ -150,23 +161,57 @@ function connectVariablesToGLSL() {
         return;
     }
 
-    // Get the storage location of u_Sampler
+    // Get the storage location of u_viewMatrix
+    u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
+    if (!u_ViewMatrix) {
+        console.log('Failed to get the storage location of u_ViewMatrix');
+        return;
+    }
+
+    // Get the storage location of u_ProjectionMatrix
+    u_ProjectionMatrix = gl.getUniformLocation(gl.program, 'u_ProjectionMatrix');
+    if (!u_ProjectionMatrix) {
+        console.log('Failed to get the storage location of u_ProjectionMatrix');
+        return;
+    }
+
+    u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
+    if (u_FragColor < 0) {
+        console.log('Failed to get the storage location of u_FragColor');
+        return;
+    }
+    
+    u_TexColorWeight = gl.getUniformLocation(gl.program, 'u_TexColorWeight');
+    if (u_TexColorWeight < 0) {
+        console.log('Failed to get the storage location of u_TexColorWeight');
+        return;
+    }
+
+    // Get the storage location of u_Sampler0
     u_Sampler0 = gl.getUniformLocation(gl.program, 'u_Sampler0');
     if(!u_Sampler0) {
-        console.log('Failed to get the storage location of u_Sampler');
+        console.log('Failed to get the storage location of u_Sampler0');
         return false;
     }
 
-    // Get the storage location of u_Sampler
-    u_whichTexture = gl.getUniformLocation(gl.program, 'u_whichTexture');
-    if(!u_whichTexture) {
-        console.log('Failed to get the storage location of u_whichTexture');
+    // Get the storage location of u_Sampler1
+    u_Sampler1 = gl.getUniformLocation(gl.program, 'u_Sampler1');
+    if(!u_Sampler1) {
+        console.log('Failed to get the storage location of u_Sampler1');
+        return false;
+    }
+
+    // Get the storage location of u_whichTexture
+    u_WhichTexture = gl.getUniformLocation(gl.program, 'u_WhichTexture');
+    if(!u_WhichTexture) {
+        console.log('Failed to get the storage location of u_WhichTexture');
         return false;
     }
 
 }
 
 // Add event listeners
+// UI elements
 function addActionsForHtmlUI() {
 
     // Button events
@@ -214,23 +259,40 @@ function addActionsForHtmlUI() {
         'mousemove', function() {g_globalAngle = this.value; renderScene(); });
 }
 
+let keys = {};
+// Key press events
+function addKeyPressEvents() {
+    document.onkeydown = keydown;
+    document.addEventListener('keydown', (e) => {keys[e.keyCode] = true});
+    document.addEventListener('keyup', (e) => {keys[e.keyCode] = false;});
+}
+
 function initTextures() {
-    var image = new Image(); // Create the image object
-    if (!image) {
+    let image0 = new Image(); // Create the image object
+    if (!image0) {
+        console.log('Failed to creat image object');
+        return false;
+    }
+
+    let image1 = new Image(); // Create the image object
+    if (!image1) {
         console.log('Failed to creat image object');
         return false;
     }
 
     // Register the event handler to be called on loading an image
-    image.onload = function() {sendImageToTEXTURE0(image);};
+    image0.onload = function() {sendImageToGLSL(0, image0);};
+    image1.onload = function() {sendImageToGLSL(1, image1);};
+    
     // Tell the browser to load an image
-    image.src = '../static/sky.jpg';
+    image0.src = '../static/sky.jpg';
+    image1.src = '../static/uv_grid.jpg';
 
     // Add more texture loading
     return true;
 }
 
-function sendImageToTEXTURE0(image) {
+function sendImageToGLSL(texUnit, image) {
     let texture = gl.createTexture(); // Create the texture object
     if(!texture) {
         console.log('Failed to create the texture object');
@@ -241,7 +303,11 @@ function sendImageToTEXTURE0(image) {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y-axis
 
     //Enable texture unit0
-    gl.activeTexture(gl.TEXTURE0);
+    if (texUnit == 0) {
+        gl.activeTexture(gl.TEXTURE0);
+    } else if (texUnit == 1) {
+        gl.activeTexture(gl.TEXTURE1);
+    }
     //Bind the texture object to the target
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -251,9 +317,13 @@ function sendImageToTEXTURE0(image) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl. RGB, gl.UNSIGNED_BYTE, image);
 
     // Set the texture unit 0 to the sampler
-    gl.uniform1i(u_Sampler0, 0);
+    if (texUnit == 0) {
+        gl.uniform1i(u_Sampler0, texUnit);
+    } else if (texUnit == 1) {
+        gl.uniform1i(u_Sampler1, texUnit);
+    }
 
-    console.log('finished loadTexture');
+    console.log('finished loadTexture for texture unit ' + texUnit);
 }
 
 function main() {
@@ -270,13 +340,20 @@ function main() {
     // };
     // canvas.onmousemove = function(ev) { if (ev.buttons == 1) handleClicks(ev);};
 
-    initTextures();
+    // Register event handlers for key presses
+    // document.onkeydown = keydown;
+    addKeyPressEvents();
 
+    initTextures();
+    
+    g_camera = new Camera(canvas);
+    
     // Specify the color for clearing <canvas>
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
+    
     // Start render
     requestAnimationFrame(tick);
+    // renderScene();
 }
 
 let g_startTime = performance.now() / 1000.0;
@@ -323,47 +400,145 @@ function updateAnimationAngles() {
         g_rOuterFingerAngle = 45 * Math.sin(2*g_seconds);
         g_rMidFingerAngle = 45 * Math.sin(2*g_seconds);
         g_rInnerFingerAngle = 45 * Math.sin(2*g_seconds);
-        // g_rUpArmAngle = 45 * Math.sin(2*g_seconds);
-        // g_rLowArmAngle = 45 * Math.sin(2*g_seconds);
-        // g_rHAngle = 45 * Math.sin(2*g_seconds);
     }
 }
 
-function drawCube(mat, color) {
-    let newCube = new Cube();
-    newCube.matrix = mat;
-    newCube.color = color;
-    newCube.render();
+function keydown(ev) {
+    // while (keys[68]) {
+    //     console.log("HEY");
+    //     g_camera.right();
+    // }
+
+    // while (ev.keyCode == 65) {
+    //     g_camera.left();
+    // }
+    // while (ev.keyCode == 87) {
+    //     g_camera.forward();
+    // }
+
+    // while (ev.keyCode == 83) {
+    //     g_camera.back();
+    // }
+
+    switch (ev.keyCode) {
+        case 68:
+            g_camera.moveRight();
+            break;
+        case 65:
+            g_camera.moveLeft();
+            break;
+        case 87:
+            g_camera.moveForward();
+            break;
+        case 83:
+            g_camera.moveBack();
+            break;
+        case 81:
+            g_camera.panLeft();
+            break;
+        case 69:
+        default:
+
+    }
+
+    renderScene();
+    console.log(ev.keyCode);
 }
 
-function drawStichedCube(mat, color = [1,1,1,1]) {
-    let newCube = new Cube();
-    newCube.matrix = mat;
-    newCube.color = color;
-    newCube.render();
+let worldMap = [
+    [1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1],
+]
+
+function generateMap(width, length) {
+    let world = [];
+
+    for (x = 0; x < width; x++) {
+        let strip = [];
+        for (y = 0; y < length; y++) {
+            strip.push(1);
+        }
+        world.push(strip);
+    }
+
+    return world;
+}
+
+function drawAThisWorld(map) {
+    for (x = 0; x < map.length; x++) {
+        for (y = 0; y < map[x].length; y++) {
+            if (map[x][y] == 1) {
+                thisWorldBlock = new Cube();
+                thisWorldBlock.color = [0.8, 1.0, 1.0, 1.0];
+                thisWorldBlock.matrix.translate(0, -0.75, 0);
+                thisWorldBlock.matrix.scale(0.3, 0.3, 0.3);
+                thisWorldBlock.matrix.translate(x - map.length / 2, 0, y - map[x].length / 2);
+                thisWorldBlock.render();
+            }
+        }
+    }
+}
+
+function drawMap() {
+    for (x = 0; x < worldMap.length; x++) {
+        for (y = 0; y < worldMap[x].length; y++) {
+            if (worldMap[x][y] == 1) {
+                worldBlock = new Cube();
+                worldBlock.color = [0.8, 1.0, 1.0, 1.0];
+                worldBlock.matrix.translate(0, -0.75, 0);
+                worldBlock.matrix.scale(0.3, 0.3, 0.3);
+                worldBlock.matrix.translate(x - worldMap.length / 2, 0, y - worldMap[x].length / 2);
+                worldBlock.render();
+            }
+        }
+    }
 }
 
 // Draw every shape that is supposed to be in the canvas
 function renderScene() {
 
     // Uncomment for performance testing
-    var startTime = performance.now();
+    let startTime = performance.now();
     
-    // Clear <canvas>
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    // Set up camera view
+    gl.uniformMatrix4fv(u_ProjectionMatrix, false, g_camera.projectionMatrix.elements);
+    gl.uniformMatrix4fv(u_ViewMatrix, false, g_camera.viewMatrix.elements);
 
     // Pass the matrix to u_GlobalRotateMatrix attribute
     let globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1, 0);
     gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
     
-    let cubey = new Matrix4();
-    cubey.rotate(-g_pitchAngle, 1, 0, 0);
-    // drawCube(cubey);
+    // Clear <canvas>
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    let skybox = new Cube();
+    skybox.color = [0.31, 0.62, 0.95, 1.0];
+    skybox.textureNum = 0;
+    skybox.matrix.scale(50, 50, 50);
+    skybox.matrix.translate(-0.5, -0.5, -0.5);
+    skybox.render();
+    
+    let floor = new Cube();
+    skybox.color = [1.0, 0.0, 0.0, 1.0];
+    floor.textureNum = 1;
+    floor.matrix.translate(0, -0.75, 0.0);
+    floor.matrix.scale(10, 0.001, 10);
+    floor.matrix.translate(-0.5, 0, -0.5);
+    floor.render();
+
+    // drawMap();
+    drawAThisWorld(generateMap(1, 1));
     drawBat();
 
     // Uncomment for performance testing 
-    var duration = performance.now() - startTime;
+    let duration = performance.now() - startTime;
     sendTextToHTML("FPS: " + Math.floor(10000/duration)/10, "numdot");
 }
 
@@ -383,240 +558,28 @@ function drawBat() {
     head.matrix.translate(-0.5, -0.5, -2.5);
     head.matrix = (new Matrix4(bodyMat)).multiply(head.matrix);
     head.render();
-    modelMatrix.setIdentity();
     
-    // Ears
-    modelMatrix = new Matrix4(headCoordinates);
-    modelMatrix.scale(0.075, 0.09, 0.05);
-    modelMatrix.translate(0.55, 0.5, -4);
-    modelMatrix.rotate(15, 1, 0, -1);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    // Ears
-    modelMatrix = new Matrix4(headCoordinates);
-    modelMatrix.scale(0.075, 0.09, 0.05);
-    modelMatrix.translate(-1.5, 0.3, -4);
-    modelMatrix.rotate(15, 1, 0, 1);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
+    // Left ear
+    let leftEar = new Cube();
+    head.color = COLOR_BODY;
+    leftEar.matrix = new Matrix4(headCoordinates);
+    leftEar.matrix.scale(0.075, 0.09, 0.05);
+    leftEar.matrix.translate(0.55, 0.5, -4);
+    leftEar.matrix.rotate(15, 1, 0, -1);
+    leftEar.matrix = (new Matrix4(bodyMat)).multiply(leftEar.matrix);
+    // drawCube(modelMatrix, COLOR_BODY);
+    leftEar.render();
     
-    // Shoulders
-    let shoulderMat = new Matrix4();
-    shoulderMat.scale(0.24, 0.06, 0.06);
-    shoulderMat.translate(-0.5, -0.5, -1.3);
-    modelMatrix.set(bodyMat);
-    modelMatrix.multiply(shoulderMat);
-    drawCube(modelMatrix, COLOR_BONE);
-    modelMatrix.setIdentity();
-
-    // Spine
-    let spineMat = new Matrix4();
-    spineMat.scale(0.06, 0.06, 0.3);
-    spineMat.translate(-0.5, -0.5, -0.5);
-    modelMatrix.set(bodyMat);
-    modelMatrix.multiply(spineMat);
-    drawCube(modelMatrix, COLOR_BONE);
-    modelMatrix.setIdentity();
-    
-    
-    // Left arm
-    // Left upper arm
-    modelMatrix.translate(0.12, 0, -0.05);
-    modelMatrix.rotate(g_lUpArmAngle - 30, 0, 1, 0);
-    modelMatrix.rotate(g_lUpArmAngle, 0, 0, -1);
-    let upperLArmCoordinates = new Matrix4(modelMatrix);
-    modelMatrix.scale(0.15, 0.05, 0.05);
-    modelMatrix.translate(0, -0.5, -0.5);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BONE);
-    modelMatrix.setIdentity();
-    
-    // Left lower arm
-    modelMatrix = new Matrix4(upperLArmCoordinates);
-    modelMatrix.translate(0.15, -0.02, 0);
-    modelMatrix.rotate(120, 0, 1, 0);
-    modelMatrix.rotate(g_lLowArmAngle, 0, 1, 0);
-    modelMatrix.rotate(g_lLowArmAngle, 0, 0, 1.5);
-    modelMatrix.scale(0.7, 0.7, 0.7);
-    let lowerLArmCoordinates = new Matrix4(modelMatrix);
-    modelMatrix.scale(0.3, 0.05, 0.05);
-    modelMatrix.translate(0, 0, -1);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Left outer finger
-    modelMatrix = new Matrix4(lowerLArmCoordinates);
-    modelMatrix.translate(0.3, 0, 0);
-    modelMatrix.rotate(-60, 0, 1, 0);
-    modelMatrix.rotate(g_lOuterFingerAngle, 0, 1, 0);
-    modelMatrix.scale(0.7, 0.03, 0.03);
-    modelMatrix.translate(0, 0.3, 0);
-    let lOuterFingerCoordinates = new Matrix4(modelMatrix);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Left middle finger
-    modelMatrix = new Matrix4(lowerLArmCoordinates);
-    modelMatrix.translate(0.3, 0, 0);
-    modelMatrix.rotate(-90, 0, 1, 0);
-    modelMatrix.rotate(g_lMidFingerAngle/2, 0, 1, 1);
-    // modelMatrix.rotate(g_lMidFingerAngle / 5, 0, 0, 1);
-    modelMatrix.scale(0.5, 0.03, 0.03);
-    modelMatrix.translate(0, 0.3, 0);
-    let lMidFingerCoordinates = new Matrix4(modelMatrix);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Left inner finger
-    modelMatrix = new Matrix4(lowerLArmCoordinates);
-    modelMatrix.translate(0.3, 0, 0);
-    modelMatrix.rotate(-120, 0, 1, 0);
-    modelMatrix.rotate(g_lInnerFingerAngle / 3, 0, 1, 0);
-    modelMatrix.scale(0.45, 0.03, 0.03);
-    modelMatrix.translate(0, 0.3, 0);
-    let lInnerFingerCoordinates = new Matrix4(modelMatrix);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Right arm
-    // Right upper arm
-    modelMatrix.translate(-0.12, 0, -0.05);
-    modelMatrix.rotate(180, 0, 1, 0);
-    modelMatrix.rotate(g_rUpArmAngle - 30, 0, -1, 0);
-    modelMatrix.rotate(g_rUpArmAngle, 0, 0, -1);
-    let upperRArmCoordinates = new Matrix4(modelMatrix);
-    modelMatrix.scale(0.15, 0.05, 0.05);
-    modelMatrix.translate(0, -0.5, -0.5);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BONE);
-    modelMatrix.setIdentity();
-    
-    // Right lower arm
-    modelMatrix = new Matrix4(upperRArmCoordinates);
-    modelMatrix.translate(0.12, -0.02, -0.01);
-    modelMatrix.rotate(240, 0, 1, 0);
-    modelMatrix.rotate(g_rLowArmAngle, 0, -1, 0);
-    modelMatrix.rotate(g_rLowArmAngle, 0, 0, 1.5);
-    modelMatrix.scale(0.7, 0.7, 0.7);
-    let lowerRArmCoordinates = new Matrix4(modelMatrix);
-    modelMatrix.scale(0.3, 0.05, 0.05);
-    modelMatrix.translate(0, 0, -1);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Right outer finger
-    modelMatrix = new Matrix4(lowerRArmCoordinates);
-    modelMatrix.translate(0.25, 0, -0.02);
-    modelMatrix.rotate(60, 0, 1, 0);
-    modelMatrix.rotate(g_rOuterFingerAngle, 0, -1, 0);
-    modelMatrix.scale(0.7, 0.03, 0.03);
-    modelMatrix.translate(0, 0.3, 0);
-    let rOuterFingerCoordinates = new Matrix4(modelMatrix);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Right middle finger
-    modelMatrix = new Matrix4(lowerRArmCoordinates);
-    modelMatrix.translate(0.3, 0, 0);
-    modelMatrix.rotate(90, 0, 1, 0);
-    modelMatrix.rotate(g_rMidFingerAngle/2, 0, -1, 1);
-    modelMatrix.scale(0.5, 0.03, 0.03);
-    modelMatrix.translate(0, 0.3, -1);
-    let rMidFingerCoordinates = new Matrix4(modelMatrix);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Right inner finger
-    modelMatrix = new Matrix4(lowerRArmCoordinates);
-    modelMatrix.translate(0.3, 0, 0);
-    modelMatrix.rotate(120, 0, 1, 0);
-    modelMatrix.rotate(g_rInnerFingerAngle / 3, 0, -1, 0);
-    modelMatrix.scale(0.45, 0.03, 0.03);
-    modelMatrix.translate(0.1, 0.3, -0.4);
-    let rInnerFingerCoordinates = new Matrix4(modelMatrix);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    // Left leg
-    modelMatrix.translate(0.05, 0, 0.2);
-    modelMatrix.rotate(15, 0.8, 1, 0);
-    let upperLLegCoordinates = new Matrix4(modelMatrix);
-    modelMatrix.scale(0.05, 0.05, 0.15);
-    modelMatrix.translate(0, -0.6, -0.44);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-
-    // Right leg
-    modelMatrix.translate(-0.1, 0, 0.2);
-    modelMatrix.rotate(-15, -0.8, 1, 0);
-    let upperRLegCoordinates = new Matrix4(modelMatrix);
-    modelMatrix.scale(0.05, 0.05, 0.15);
-    modelMatrix.translate(0, -0.6, -0.5);
-    modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-    drawCube(modelMatrix, COLOR_BODY);
-    modelMatrix.setIdentity();
-    
-    if (!g_showSkeleton) {
-
-        // Draw head
-        modelMatrix.translate(0, 0.1, -0.01);
-        modelMatrix.rotate(-30, 1, 0, 0);
-        modelMatrix.scale(0.13, 0.13, 0.2);
-        modelMatrix.translate(-0.5, -0.5, -1.75);
-        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-        drawCube(modelMatrix, COLOR_BODY);
-        modelMatrix.setIdentity();
-
-        // Draw the body
-        modelMatrix.scale(0.2, 0.17, 0.301);
-        modelMatrix.translate(-0.5, -0.5, -0.5);
-        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-        drawCube(modelMatrix, COLOR_BODY);
-        modelMatrix.setIdentity();
-        
-        // Draw shoulders
-        modelMatrix.scale(0.25, 0.07, 0.07);
-        modelMatrix.translate(-0.5, -0.5, -1.2);
-        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-        drawCube(modelMatrix, COLOR_BODY);
-        modelMatrix.setIdentity();
-
-        // Left arm
-        // Left upper arm
-        modelMatrix.translate(0.12, 0, -0.05);
-        modelMatrix.rotate(g_lUpArmAngle - 30, 0, 1, 0);
-        modelMatrix.rotate(g_lUpArmAngle, 0, 0, -1);
-        let upperLArmCoordinates = new Matrix4(modelMatrix);
-        modelMatrix.scale(0.152, 0.06, 0.06);
-        modelMatrix.translate(-0.01, -0.5, -0.5);
-        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-        drawCube(modelMatrix, COLOR_BODY);
-        modelMatrix.setIdentity();
-
-        // Right arm
-        // Right upper arm
-        modelMatrix.translate(-0.12, 0, -0.05);
-        modelMatrix.rotate(180, 0, 1, 0);
-        modelMatrix.rotate(g_rUpArmAngle - 30, 0, -1, 0);
-        modelMatrix.rotate(g_rUpArmAngle, 0, 0, -1);
-        let upperRArmCoordinates = new Matrix4(modelMatrix);
-        modelMatrix.scale(0.155, 0.06, 0.06);
-        modelMatrix.translate(-0.02, -0.5, -0.5);
-        modelMatrix = (new Matrix4(bodyMat)).multiply(modelMatrix);
-        drawCube(modelMatrix, COLOR_BODY);
-        modelMatrix.setIdentity();
-    }
+    // Right ear
+    rightEar = new Cube();
+    rightEar.color = COLOR_BODY;
+    rightEar.textureNum = 0
+    rightEar.matrix = new Matrix4(headCoordinates);
+    rightEar.matrix.scale(0.075, 0.09, 0.05);
+    rightEar.matrix.translate(-1.5, 0.3, -4);
+    rightEar.matrix.rotate(15, 1, 0, 1);
+    rightEar.matrix = (new Matrix4(bodyMat)).multiply(rightEar.matrix);
+    rightEar.render();
 }
 
 function sendTextToHTML(text, htmlID) {
