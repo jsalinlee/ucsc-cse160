@@ -5,15 +5,19 @@ class Camera {
         this.at = new Vector3([0,0,-1]);
         this.up = new Vector3([0,1,0]);
         this.viewMatrix = new Matrix4();
+        this.look();
+        this.projectionMatrix = new Matrix4();
+        this.projectionMatrix.setPerspective(this.fov, canvas.width / canvas.height, 0.1, 1000);
+        this.cameraSpeed = 0.05;
+        this.dTheta = 5;
+    }
+
+    look() {
         this.viewMatrix.setLookAt(
             this.eye.elements[0], this.eye.elements[1], this.eye.elements[2], 
             this.at.elements[0], this.at.elements[1], this.at.elements[2],
             this.up.elements[0], this.up.elements[1], this.up.elements[2],
         )
-        this.projectionMatrix = new Matrix4();
-        this.projectionMatrix.setPerspective(this.fov, canvas.width / canvas.height, 0.1, 1000);
-        this.cameraSpeed = 50;
-        this.rotRate = 5;
     }
 
     moveForward() {
@@ -24,6 +28,7 @@ class Camera {
         f.mul(this.cameraSpeed);
         this.at.add(f);
         this.eye.add(f);
+        this.look();
     }
 
     moveBack() {
@@ -34,6 +39,7 @@ class Camera {
         f.mul(this.cameraSpeed);
         this.at.add(f);
         this.eye.add(f);
+        this.look();
     }
 
     moveLeft() {
@@ -47,11 +53,13 @@ class Camera {
         let s = Vector3.cross(f, this.up);
         s.normalize();
         s.mul(this.cameraSpeed);
-        this.at = this.at.sub(s);
-        this.eye = this.eye.sub(s);
+        this.at.sub(s);
+        this.eye.sub(s);
+        this.look();
     }
     
     moveRight() {
+        let f = new Vector3();
         // calculate unit direction of camera
         f.set(this.at);
         f.sub(this.eye);
@@ -61,25 +69,36 @@ class Camera {
         let s = Vector3.cross(this.up, f);
         s.normalize();
         s.mul(this.cameraSpeed);
-        this.at = this.at.sub(s);
-        this.eye = this.eye.sub(s);
+        this.at.sub(s);
+        this.eye.sub(s);
+        this.look();
     }
 
     panLeft() {
+        console.log(this.at);
         let f = new Vector3();
         f.set(this.at);
-        console.log(f);
         f.sub(this.eye);
-        let r = Math.sqrt(Math.pow(f.elements[0],2) + Math.pow(f.elements[1],2));
-        console.log(r);
-        let newTheta = (Math.atan(f.elements[0] / f.elements[1] || 0) * 180 / Math.PI) + this.rotRate;
-        console.log(newTheta);
+        let rotationMatrix = new Matrix4();
+        rotationMatrix.setIdentity();
+        rotationMatrix.setRotate(this.dTheta, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        let f_prime = rotationMatrix.multiplyVector3(f);
+        this.at.set(this.eye)
+        this.at.add(f_prime);
+        this.look();
+    }
 
-        let x = r * Math.cos(newTheta);
-        let y = r * Math.sin(newTheta);
-        let d = new Vector3();
-        d.elements[0], d.elements[1] = x, y;
-        console.log("New D: " + d.elements);
+    panRight() {
+        let f = new Vector3();
+        f.set(this.at);
+        f.sub(this.eye);
+        let rotationMatrix = new Matrix4();
+        rotationMatrix.setIdentity();
+        rotationMatrix.setRotate(-1 * this.dTheta, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        let f_prime = rotationMatrix.multiplyVector3(f);
+        this.at.set(this.eye)
+        this.at.add(f_prime);
+        this.look();
     }
 }
 

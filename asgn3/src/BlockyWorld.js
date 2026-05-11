@@ -437,12 +437,55 @@ function keydown(ev) {
             g_camera.panLeft();
             break;
         case 69:
+            g_camera.panRight();
         default:
-
+            break;
     }
 
-    renderScene();
     console.log(ev.keyCode);
+    renderScene();
+}
+
+// Draw every shape that is supposed to be in the canvas
+function renderScene() {
+
+    // Uncomment for performance testing
+    let startTime = performance.now();
+    
+    // Update camera view
+    gl.uniformMatrix4fv(u_ProjectionMatrix, false, g_camera.projectionMatrix.elements);
+    gl.uniformMatrix4fv(u_ViewMatrix, false, g_camera.viewMatrix.elements);
+
+    // Pass the matrix to u_GlobalRotateMatrix attribute
+    let globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1, 0);
+    gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
+    
+    // Clear <canvas>
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    let skybox = new Cube();
+    skybox.color = [0.31, 0.62, 0.95, 1.0];
+    skybox.textureNum = 0;
+    skybox.matrix.scale(50, 50, 50);
+    skybox.matrix.translate(-0.5, -0.5, -0.5);
+    skybox.render();
+    
+    let floor = new Cube();
+    skybox.color = [1.0, 0.0, 0.0, 1.0];
+    floor.textureNum = 1;
+    floor.matrix.translate(0, -0.75, 0.0);
+    floor.matrix.scale(10, 0.001, 10);
+    floor.matrix.translate(-0.5, 0, -0.5);
+    floor.render();
+
+    // drawMap();
+    drawAThisWorld(generateMap(1, 1));
+    drawBat();
+
+    // Uncomment for performance testing 
+    let duration = performance.now() - startTime;
+    sendTextToHTML("FPS: " + Math.floor(10000/duration)/10, "numdot");
 }
 
 let worldMap = [
@@ -500,48 +543,6 @@ function drawMap() {
     }
 }
 
-// Draw every shape that is supposed to be in the canvas
-function renderScene() {
-
-    // Uncomment for performance testing
-    let startTime = performance.now();
-    
-    // Set up camera view
-    gl.uniformMatrix4fv(u_ProjectionMatrix, false, g_camera.projectionMatrix.elements);
-    gl.uniformMatrix4fv(u_ViewMatrix, false, g_camera.viewMatrix.elements);
-
-    // Pass the matrix to u_GlobalRotateMatrix attribute
-    let globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1, 0);
-    gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
-    
-    // Clear <canvas>
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    let skybox = new Cube();
-    skybox.color = [0.31, 0.62, 0.95, 1.0];
-    skybox.textureNum = 0;
-    skybox.matrix.scale(50, 50, 50);
-    skybox.matrix.translate(-0.5, -0.5, -0.5);
-    skybox.render();
-    
-    let floor = new Cube();
-    skybox.color = [1.0, 0.0, 0.0, 1.0];
-    floor.textureNum = 1;
-    floor.matrix.translate(0, -0.75, 0.0);
-    floor.matrix.scale(10, 0.001, 10);
-    floor.matrix.translate(-0.5, 0, -0.5);
-    floor.render();
-
-    // drawMap();
-    drawAThisWorld(generateMap(1, 1));
-    drawBat();
-
-    // Uncomment for performance testing 
-    let duration = performance.now() - startTime;
-    sendTextToHTML("FPS: " + Math.floor(10000/duration)/10, "numdot");
-}
-
 function drawBat() {
     let modelMatrix = new Matrix4();
     let bodyMat = new Matrix4();
@@ -551,6 +552,7 @@ function drawBat() {
     // Head
     let head = new Cube();
     head.color = COLOR_BODY;
+    head.textureWeight = 0.5;
     head.matrix.translate(0, 0.1, -0.01);
     head.matrix.rotate(-30, 1, 0, 0);
     let headCoordinates = new Matrix4(head.matrix);
