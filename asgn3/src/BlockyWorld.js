@@ -1,4 +1,4 @@
-// BlockyAnimal.js
+// BlockyWorld.js
 // Vertex shader program
 let VSHADER_SOURCE = `
     precision mediump float;
@@ -55,11 +55,13 @@ let FSHADER_SOURCE = `
 `;
 
 // Constants
+
+// World generation
 const MAX_WORLD_HEIGHT = 4;
 
 // Color values
-const COLOR_BODY = [0.35, 0.2, 0.1, 1];
-const COLOR_BONE = [0.8, 0.8, 0.8, 1];
+// const COLOR_BODY = [0.35, 0.2, 0.1, 1];
+// const COLOR_BONE = [0.8, 0.8, 0.8, 1];
 
 // ------- Global variables ------------------
 // WebGL variables
@@ -98,32 +100,7 @@ let g_worldTerrainDensity = 0.1;
 // Angle variables
 // Camera angles
 let g_globalAngle = 0;
-
-// Bat angles
-let g_pitchAngle = 0;
-let g_rollAngle = 0;
-
-// Left wing
-let g_lUpArmAngle = 0;
-let g_lLowArmAngle = 0;
-let g_lOuterFingerAngle = 0;
-let g_lMidFingerAngle = 0;
-let g_lInnerFingerAngle = 0;
-
-// Right wing
-let g_rUpArmAngle = 0;
-let g_rLowArmAngle = 0;
-let g_rOuterFingerAngle = 0;
-let g_rMidFingerAngle = 0;
-let g_rInnerFingerAngle = 0;
-
-// Animation booleans
-let g_pitchAnimation = false;
-let g_rollAnimation = false;
-let g_flyingAnimation = false;
-
-// Visual toggles
-let g_showSkeleton = false;
+let g_fov = 90;
 // ------- End global variables ------------------
 
 function setupWebGL() {
@@ -238,18 +215,20 @@ function connectVariablesToGLSL() {
 // Add event listeners
 // UI elements
 function addActionsForHtmlUI() {
-    
     // Camera movement slider
     document.getElementById('angleSlide').addEventListener(
         'mousemove', function() {g_globalAngle = this.value; renderScene(); });
+    // FOV movement slider
+    document.getElementById('fovSlide').addEventListener(
+        'mousemove', function() {g_fovAngle = this.value; renderScene(); });
 }
 
 let keys = {};
 // Key press events
 function addKeyPressEvents() {
     document.onkeydown = keydown;
-    document.addEventListener('keydown', (e) => {keys[e.keyCode] = true});
-    document.addEventListener('keyup', (e) => {keys[e.keyCode] = false;});
+    // document.addEventListener('keydown', (e) => {keys[e.keyCode] = true});
+    // document.addEventListener('keyup', (e) => {keys[e.keyCode] = false;});
 }
 
 function initTextures() {
@@ -345,27 +324,32 @@ function main() {
     addActionsForHtmlUI();
 
     // // Register event handlers for mouse events
-    // canvas.onmousedown = (ev) => {
-    //     handleClicks(ev);
-    // };
-    // canvas.onmousemove = function(ev) { if (ev.buttons == 1) handleClicks(ev);};
+    canvas.onmousemove = (ev) => {
+        handleMouseMove(ev);
+    };
 
     
     // Register event handlers for key presses
-    // document.onkeydown = keydown;
     addKeyPressEvents();
     
+    // Initialize and load textures
     initTextures();
     
+    // Initialize player camera
     g_camera = new Camera(canvas);
     
     // Specify the color for clearing <canvas>
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+    // Generate a terrain map
     g_worldMap = generateMap(32, 32);
 
     // Start render
     requestAnimationFrame(tick);
-    // renderScene();
+}
+
+function handleMouseMove(e) {
+    g_camera.onMouseMove(e);
 }
 
 let g_startTime = performance.now() / 1000.0;
@@ -389,30 +373,30 @@ function tick() {
 
 // Update the angles of everything if currently animated
 function updateAnimationAngles() {
-    if (g_pitchAnimation) {
-        g_pitchAngle = 45 * Math.sin(2*g_seconds);
-    }
-    if (g_rollAnimation) {
-        g_rollAngle = 45 * Math.sin(3*g_seconds);
-    }
-    if (g_flyingAnimation) {
-        // Body
-        // g_pitchAngle = -5 * Math.sin(2*g_seconds);
+    // if (g_pitchAnimation) {
+    //     g_pitchAngle = 45 * Math.sin(2*g_seconds);
+    // }
+    // if (g_rollAnimation) {
+    //     g_rollAngle = 45 * Math.sin(3*g_seconds);
+    // }
+    // if (g_flyingAnimation) {
+    //     // Body
+    //     // g_pitchAngle = -5 * Math.sin(2*g_seconds);
 
-        // Left wing
-        g_lUpArmAngle = 30 * Math.sin(2*g_seconds) - 30 + 30 * Math.cos(2*g_seconds);
-        g_lLowArmAngle = -30 * Math.sin(2*g_seconds);
-        g_lOuterFingerAngle = 45 * Math.sin(2*g_seconds);
-        g_lMidFingerAngle = 45 * Math.sin(2*g_seconds);
-        g_lInnerFingerAngle = 45 * Math.sin(2*g_seconds);
+    //     // Left wing
+    //     g_lUpArmAngle = 30 * Math.sin(2*g_seconds) - 30 + 30 * Math.cos(2*g_seconds);
+    //     g_lLowArmAngle = -30 * Math.sin(2*g_seconds);
+    //     g_lOuterFingerAngle = 45 * Math.sin(2*g_seconds);
+    //     g_lMidFingerAngle = 45 * Math.sin(2*g_seconds);
+    //     g_lInnerFingerAngle = 45 * Math.sin(2*g_seconds);
 
-        // Right wing
-        g_rUpArmAngle = 30 * Math.sin(2*g_seconds) - 30 + 30 * Math.cos(2*g_seconds);
-        g_rLowArmAngle = -30 * Math.sin(2*g_seconds);
-        g_rOuterFingerAngle = 45 * Math.sin(2*g_seconds);
-        g_rMidFingerAngle = 45 * Math.sin(2*g_seconds);
-        g_rInnerFingerAngle = 45 * Math.sin(2*g_seconds);
-    }
+    //     // Right wing
+    //     g_rUpArmAngle = 30 * Math.sin(2*g_seconds) - 30 + 30 * Math.cos(2*g_seconds);
+    //     g_rLowArmAngle = -30 * Math.sin(2*g_seconds);
+    //     g_rOuterFingerAngle = 45 * Math.sin(2*g_seconds);
+    //     g_rMidFingerAngle = 45 * Math.sin(2*g_seconds);
+    //     g_rInnerFingerAngle = 45 * Math.sin(2*g_seconds);
+    // }
 }
 
 function keydown(ev) {

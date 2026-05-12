@@ -5,18 +5,20 @@
   <head>
     <meta charset="utf-8" />
     <title>Bat stuff</title>
-    <link rel="stylesheet", href="styles.css">
+    <link rel="stylesheet", href="../static/styles.css">
   </head>
 
   <body onload="main()">
-    <canvas id="webgl" width="800" height="800">
-    Please use a browser that supports "canvas"
-    </canvas>
+    <div class="canvas-wrapper">
+        <canvas id="webgl" width="1200" height="800">
+            Please use a browser that supports "canvas"
+        </canvas>
+    </div>
 
     <!-- Uncomment for performance testing -->
-    <p id="numdot"></p>
-
+    
     <div class="settings">
+        <p id="numdot"></p>
         <div class="settings-item">
             Camera Angle <input type="range" min="0", max="360" value="0" class="slider" id="angleSlide">
         <div class="settings-item">

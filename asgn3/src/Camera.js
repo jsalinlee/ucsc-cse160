@@ -2,7 +2,7 @@ class Camera {
     constructor(canvas) {
         this.fov = 60.0;
         this.eye = new Vector3([0,0,0]);
-        this.at = new Vector3([0,0,-1]);
+        this.at = new Vector3([0,0, -1]);
         this.up = new Vector3([0,1,0]);
         this.viewMatrix = new Matrix4();
         this.look();
@@ -98,6 +98,12 @@ class Camera {
         this.at.set(this.eye)
         this.at.add(f_prime);
         this.look();
+    }
+
+    onMouseMove(e) {
+        console.log(e.offsetX);
+        let newDir = new Vector3();
+        this.at.set
     }
 }
 
