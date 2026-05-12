@@ -220,7 +220,11 @@ function addActionsForHtmlUI() {
         'mousemove', function() {g_globalAngle = this.value; renderScene(); });
     // FOV movement slider
     document.getElementById('fovSlide').addEventListener(
-        'mousemove', function() {g_fovAngle = this.value; renderScene(); });
+        'mousemove', function() {
+            g_camera.fov = this.value;
+            g_camera.projectionMatrix.setPerspective(g_camera.fov, canvas.width / canvas.height, 0.1, 1000);
+            renderScene();
+        });
 }
 
 let keys = {};
