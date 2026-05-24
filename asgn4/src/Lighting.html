@@ -1,0 +1,34 @@
+<!-- Jonathan Salin Lee -->
+<!-- jlee1123@ucsc.edu -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Assignment 4: Lighting</title>
+    <link rel="stylesheet", href="../static/styles.css">
+  </head>
+
+  <body onload="main()">
+    <div class="canvas-wrapper">
+        <canvas id="webgl" width="800" height="800">
+            Please use a browser that supports "canvas"
+        </canvas>
+    </div>
+    
+    <div class="settings">
+        <p id="numdot"></p>
+        <div class="settings-item">
+            Zoom Out:<input id="zoomSlider" class="slider" type="range" value="1" min="1", max="20" oninput="onZoomInput(this.value)">
+        </div>
+    </div>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/cuon-matrix-cse160.js"></script>
+    <script src="./Camera.js"></script>
+    <script src="./Model.js"></script>
+    <script src="./Cube.js"></script>
+    <script src="./Sphere.js"></script>
+    <script src="./Lighting.js"></script>
+  </body>
+</html>
