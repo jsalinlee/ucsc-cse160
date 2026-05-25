@@ -156,52 +156,44 @@ class Camera {
         this.updateView();
     }
     
-    // moveUp() {
-    //     let f = new Vector3();
-    //     f.set(this.at);
-    //     f.sub(this.eye);
+    moveUp() {
+        let f = new Vector3([0, this.cameraSpeed, 0]);
+        this.at.add(f);
+        this.eye.add(f);
+        this.updateView();
+    }
 
-    //     let rotationMatrix = new Matrix4();
-    //     rotationMatrix.setIdentity();
-    //     rotationMatrix.setRotate(-1 * this.dTheta, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
-        
-    //     this.updateView();
-    // }
+    moveDown() {
+        let f = new Vector3([0, this.cameraSpeed, 0]);
+        this.at.sub(f);
+        this.eye.sub(f);
+        this.updateView();
+    }
     
-    // moveDown() {
-    //     let f = new Vector3();
-    //     f.set(this.at);
-    //     f.sub(this.eye);
-        
-    //     let rotationMatrix = new Matrix4();
-    //     rotationMatrix.setIdentity();
-    //     rotationMatrix.setRotate(-1 * this.dTheta, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
-    //     this.updateView();
-    // }
-    
-    // tiltUp() {
-    //     let f = new Vector3();
-    //     f.set(this.at);
-    //     f.sub(this.eye);
-
-    //     let rotationMatrix = new Matrix4();
-    //     rotationMatrix.setIdentity();
-    //     rotationMatrix.setRotate(-1 * this.dTheta, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
-        
-    //     this.updateView();
-    // }
-    
-    // tiltDown() {
-    //     let f = new Vector3();
-    //     f.set(this.at);
-    //     f.sub(this.eye);
-
-    //     let rotationMatrix = new Matrix4();
-    //     rotationMatrix.setIdentity();
-    //     rotationMatrix.setRotate(-1 * this.dTheta, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
-        
-    //     this.updateView();
-    // }
+    tiltUp() {
+        let f = new Vector3();
+        f.set(this.at);
+        f.sub(this.eye);
+        let rotationMatrix = new Matrix4();
+        rotationMatrix.setIdentity();
+        rotationMatrix.setRotate(-1 * this.dTheta, this.up.elements[1], this.up.elements[0], this.up.elements[2]);
+        let f_prime = rotationMatrix.multiplyVector3(f);
+        this.at.set(this.eye)
+        this.at.add(f_prime);
+        this.updateView();
+    }
+    tiltDown() {
+        let f = new Vector3();
+        f.set(this.at);
+        f.sub(this.eye);
+        let rotationMatrix = new Matrix4();
+        rotationMatrix.setIdentity();
+        rotationMatrix.setRotate(1 * this.dTheta, this.up.elements[1], this.up.elements[0], this.up.elements[2]);
+        let f_prime = rotationMatrix.multiplyVector3(f);
+        this.at.set(this.eye)
+        this.at.add(f_prime);
+        this.updateView();
+    }
 
     onMouseMove(e) {
         console.log(e.offsetX);

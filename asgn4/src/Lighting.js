@@ -4,6 +4,7 @@ let VSHADER_SOURCE = `
     precision mediump float;
     attribute vec4 a_Position;
     attribute vec3 a_Normal;
+    uniform vec3 u_LightColor;
     attribute vec2 a_UV;
     
     uniform mat4 u_ModelMatrix;
@@ -15,11 +16,13 @@ let VSHADER_SOURCE = `
 
     varying vec4 v_WorldPos;
     varying vec3 v_Normal;
+    varying vec3 v_LightColor;
     varying vec2 v_UV;
 
     void main() {
         v_WorldPos = u_ModelMatrix * a_Position;
         v_UV = a_UV;
+        v_LightColor = u_LightColor;
         
         v_Normal = normalize((u_NormalMatrix * vec4(a_Normal, 0.0)).xyz);
         gl_Position = u_ProjectionMatrix * u_ViewMatrix * v_WorldPos;
@@ -30,7 +33,10 @@ let VSHADER_SOURCE = `
 let FSHADER_SOURCE = `
     precision mediump float;
     uniform vec3 u_Color;
-
+    uniform bool u_SpotlightSwitch;
+    uniform bool u_LightSwitch;
+    uniform bool u_NormalSwitch;
+    
     uniform vec3 u_AmbientColor;
     uniform vec3 u_DiffuseColor;
     uniform vec3 u_SpecularColor;
@@ -41,14 +47,16 @@ let FSHADER_SOURCE = `
     
     varying vec4 v_WorldPos;
     varying vec3 v_Normal;
+    varying vec3 v_LightColor;
+    varying vec2 v_UV;
 
     vec3 calcAmbient() {
         return u_AmbientColor * u_Color;
     }
 
-    vec3 calcDiffuse(vec3 l, vec3 n, vec3 dColor) {
+    vec3 calcDiffuse(vec3 l, vec3 n, vec3 dColor, float intensity) {
         float nDotL = max(dot(l, n), 0.0);
-        return dColor * u_Color * nDotL;
+        return intensity * dColor * u_Color * nDotL;
     }
 
     vec3 calcSpecular(vec3 r, vec3 v) {
@@ -58,25 +66,37 @@ let FSHADER_SOURCE = `
     }
 
     void main() {
-        vec3 l1 = normalize(u_LightDirection); // Light 1
-        vec3 l2 = normalize(u_LightLocation - v_WorldPos.xyz); // Light 2
-        
-        vec3 v = normalize(u_EyePosition - v_WorldPos.xyz);
-        
-        vec3 r1 = reflect(l1, v_Normal);
-        vec3 r2 = reflect(l2, v_Normal);
-        
-        vec3 ambient = calcAmbient(); 
-        
-        vec3 diffuse1 = calcDiffuse(l1, v_Normal, u_DiffuseColor);
-        vec3 specular1 = calcSpecular(r1, -v);
-        
-        vec3 diffuse2 = calcDiffuse(l2, v_Normal, u_DiffuseColor);
-        vec3 specular2 = calcSpecular(r2, -v);
-        
-        vec3 v_Color = ambient + (diffuse1 + diffuse2) + (specular1 + specular2);
+        float lightIntensity = 2.0;
+        if (u_LightSwitch) {
+            vec3 l1 = normalize(u_LightDirection); // Light 1
+            vec3 l2 = normalize(u_LightLocation - v_WorldPos.xyz); // Light 2
+            
+            vec3 v = normalize(u_EyePosition - v_WorldPos.xyz);
+            
+            vec3 r1 = reflect(l1, v_Normal);
+            vec3 r2 = reflect(l2, v_Normal);
+            
+            vec3 ambient = calcAmbient(); 
+            
+            vec3 diffuse1 = vec3(0,0,0);
+            vec3 specular1 = vec3(0,0,0);
+            if (u_SpotlightSwitch) {
+                diffuse1 = calcDiffuse(l1, v_Normal, u_DiffuseColor, lightIntensity);
+                specular1 = calcSpecular(r1, -v);
+            }
+            
+            vec3 diffuse2 = calcDiffuse(l2, v_Normal, u_DiffuseColor, lightIntensity);
+            vec3 specular2 = calcSpecular(r2, -v);
+            
+            vec3 v_Color = ambient + (diffuse1 + diffuse2) + (specular1 + specular2);
 
-        gl_FragColor = vec4(v_Color, 1.0);
+            gl_FragColor = vec4(v_Color, 1.0);
+        } else {
+            gl_FragColor = vec4(u_Color, 1.0);
+        }
+        if (u_NormalSwitch) {
+            gl_FragColor = vec4(v_Normal, 1.0);
+        }
     }
 `;
 
@@ -85,9 +105,19 @@ let normalMatrix = new Matrix4();
 
 let models = [];
 
-let lightDirection = new Vector3([1.0, 1.0, 1.0]);
-let lightLocation = new Vector3([0.0, 1.0, 1.0]);
-let lightRotation = new Matrix4().setRotate(1, 0, 1, 0);
+let g_ambientColor = [0.2, 0.2, 0.2];
+// let g_diffuseColor = [0.8, 0.8, 0.8];
+let g_diffuseColor = [0.8, 0.8, 0.8];
+let g_specularColor = [1.0, 1.0, 1.0];
+
+let g_lightDirection = new Vector3([1.0, 1.0, 1.0]);
+let g_lightLocation = new Vector3([0.0, 1.0, 1.0]);
+let g_lightRotation = new Matrix4().setRotate(1, 0, 1, 0);
+let g_lightAnimation = true;
+let g_lightIntensity = 8.0;
+let g_spotlightSwitch = false;
+let g_lightSwitch = true;
+let g_normalSwitch = false;
 
 // Uniform locations
 let u_ModelMatrix = null;
@@ -100,11 +130,16 @@ let u_AmbientColor = null;
 let u_DiffuseColor = null;
 let u_SpecularColor = null;
 
+let u_SpotlightSwitch = null;
+let u_LightSwitch = null;
 let u_LightDirection = null;
 let u_LightLocation = null;
 let u_EyePosition = null;
 
-// let pointLightSphere = null;
+let pointLightSphere = null;
+
+// HTML elements;
+let lightColorPicker;
 
 function drawModel(model) {
     //  Update model matrix combining translate, rotate, and scale from cube
@@ -162,9 +197,16 @@ function initBuffer(attributeName, n) {
 function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    lightLocation = lightRotation.multiplyVector3(lightLocation);
-    gl.uniform3fv(u_LightLocation, lightLocation.elements);
-    pointLightSphere.setTranslate(lightLocation.elements[0], lightLocation.elements[1], lightLocation.elements[2]);
+    if (g_lightAnimation) {
+        g_lightLocation = g_lightRotation.multiplyVector3(g_lightLocation);
+        // console.log(g_lightLocation);
+        gl.uniform3fv(u_LightLocation, g_lightLocation.elements);
+        pointLightSphere.setTranslate(g_lightLocation.elements[0], g_lightLocation.elements[1], g_lightLocation.elements[2]);
+        pointLightSphere.color = [...g_diffuseColor.map((ele) => ele * g_lightIntensity), 1.0];
+    } else {
+        gl.uniform3fv(u_LightLocation, g_lightLocation.elements);
+        pointLightSphere.setTranslate(g_lightLocation.elements[0], g_lightLocation.elements[1], g_lightLocation.elements[2]);
+    }
 
     gl.uniform3fv(u_EyePosition, camera.eye.elements);
 
@@ -197,6 +239,57 @@ function addModel(color, shapeType) {
     return model;
 }
 
+function addInputEvents() {
+    lightColorPicker = document.getElementById("lightColorPicker");
+    lightColorPicker.addEventListener("input", function(e) {
+        e.target.value = e.target.value;
+    });
+    lightColorPicker.addEventListener("change", function(e) {
+        const value = event.target.value;
+        const r = parseInt(value.substring(1, 3), 16) / 255;
+        const g = parseInt(value.substring(3, 5), 16) / 255;
+        const b = parseInt(value.substring(5, 7), 16) / 255;
+        g_diffuseColor = [r, g, b];
+        pointLightSphere.color = [...g_diffuseColor.map((ele) => ele * g_lightIntensity), 1.0];
+        gl.uniform3f(u_DiffuseColor, ...g_diffuseColor);
+    });
+}
+
+function onMoveLight(x, y, z) {
+    if (x) {
+        g_lightLocation.elements[0] = 3 * (x / 100);
+    }
+    if (y) {
+        g_lightLocation.elements[1] = y / 100;
+    }
+    if (z) {
+        g_lightLocation.elements[2] = z / 100;
+    }
+    gl.uniform3fv(u_LightLocation, g_lightLocation.elements);
+    pointLightSphere.setTranslate(g_lightLocation.elements[0], g_lightLocation.elements[1], g_lightLocation.elements[2]);
+    // draw();
+}
+
+function onFlipLightAnimation(checked) {
+    g_lightAnimation = checked ? true : false;
+}
+
+function onFlipSpotlightSwitch (checked) {
+    g_spotlightSwitch = checked ? true : false;
+    gl.uniform1i(u_SpotlightSwitch, g_spotlightSwitch);
+}
+
+function onFlipLightSwitch(checked) {
+    // console.log(value);
+    g_lightSwitch = checked ? true : false;
+    gl.uniform1i(u_LightSwitch, g_lightSwitch);
+}
+
+function onFlipNormalSwitch(checked) {
+    g_normalSwitch = checked ? true : false;
+    gl.uniform1i(u_NormalSwitch, g_normalSwitch);
+}
+
 function onZoomInput(value) {
     // console.log(1.0 + value/10);
     camera.zoom(1.0 + value/10);
@@ -204,6 +297,7 @@ function onZoomInput(value) {
 
 window.addEventListener("keydown", function (event) {
     let speed = 1.0;
+    console.log(event.key);
 
     switch (event.key) {
         case "w":
@@ -229,6 +323,19 @@ window.addEventListener("keydown", function (event) {
         case "e":
             console.log("pan right");
             camera.panRight();
+            break;
+        case "r":
+            console.log("move up");
+            camera.moveUp();
+            break;
+        case "f":
+            camera.moveDown();
+            break;
+        case "z":
+            camera.tiltUp();
+            break;
+        case "x":
+            camera.tiltDown();
             break;
     }
 });
@@ -264,6 +371,9 @@ function main() {
 
     u_LightDirection = gl.getUniformLocation(gl.program, "u_LightDirection");
     u_LightLocation = gl.getUniformLocation(gl.program, "u_LightLocation");
+    u_SpotlightSwitch = gl.getUniformLocation(gl.program, "u_SpotlightSwitch");
+    u_LightSwitch = gl.getUniformLocation(gl.program, "u_LightSwitch");
+    u_NormalSwitch = gl.getUniformLocation(gl.program, "u_NormalSwitch");
     
     u_EyePosition = gl.getUniformLocation(gl.program, "u_EyePosition");
 
@@ -272,6 +382,9 @@ function main() {
         let randG = Math.random();
         let randB = Math.random();
         
+        // let box = addModel([1.0, 1.0, 1.0, 1.0], "cube");
+        // box.setScale(-10, -10, -10);
+        // box.setTranslate(-0.5, 0.5, 0.5);
         let cube = addModel([randR, randG, randB, 1.0], "cube");
         cube.setScale(0.5, 0.5, 0.5);
         cube.setTranslate(-2.0 + (2.0 * i), -0.5, 0.0);
@@ -279,17 +392,19 @@ function main() {
         sphere.setScale(0.5, 0.5, 0.5);
         sphere.setTranslate(-2.0 + (2.0 * i), 1.0, 0.0);
 
-        // let cube = addModel([0.0, 0.35, 1.0, 1.0], "cube");
+        // let cube = addModel([1.0, 1.0, 1.0, 1.0], "cube");
         // cube.setScale(0.5, 0.5, 0.5);
         // cube.setTranslate(-2.0 + (2.0 * i), -0.5, 0.0);
-        // let sphere = addModel([1.0, 0.0, 0.5, 1.0], "sphere");
+        // let sphere = addModel([1.0, 1.0, 1.0, 1.0], "sphere");
         // sphere.setScale(0.5, 0.5, 0.5);
         // sphere.setTranslate(-2.0 + (2.0 * i), 1.0, 0.0);
     }
 
-    pointLightSphere = new Sphere([1.0, 1.0, 1.0, 1.0]);
-    pointLightSphere.setScale(0.1, 0.1, 0.1);
-    pointLightSphere.setTranslate(lightLocation);
+    gl.uniform1i(u_SpotlightSwitch, g_spotlightSwitch);
+    gl.uniform1i(u_LightSwitch, g_lightSwitch);
+    pointLightSphere = new Cube([...g_diffuseColor.map((ele) => ele * g_lightIntensity), 1.0]);
+    pointLightSphere.setScale(-0.1, -0.1, -0.1);
+    pointLightSphere.setTranslate(g_lightLocation);
     models.push(pointLightSphere);
  
     vertexBuffer = initBuffer("a_Position", 3);
@@ -301,12 +416,14 @@ function main() {
         return -1;
     }
 
-    gl.uniform3f(u_AmbientColor, 0.2, 0.2, 0.2);
-    gl.uniform3f(u_DiffuseColor, 0.8, 0.8, 0.8);
-    gl.uniform3f(u_SpecularColor, 1.0, 1.0, 1.0);
-    gl.uniform3fv(u_LightDirection, lightDirection.elements);
+    gl.uniform3f(u_AmbientColor, ...g_ambientColor);
+    gl.uniform3f(u_DiffuseColor, ...g_diffuseColor);
+    gl.uniform3f(u_SpecularColor, ...g_specularColor);
+    gl.uniform3fv(u_LightDirection, g_lightDirection.elements);
 
     camera = new Camera(canvas);
+    
+    addInputEvents();
     
     draw();
 }

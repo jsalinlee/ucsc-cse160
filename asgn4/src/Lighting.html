@@ -14,11 +14,53 @@
             Please use a browser that supports "canvas"
         </canvas>
     </div>
-    
-    <div class="settings">
-        <p id="numdot"></p>
-        <div class="settings-item">
-            Zoom Out:<input id="zoomSlider" class="slider" type="range" value="1" min="1", max="20" oninput="onZoomInput(this.value)">
+    <div class="main-controls">
+        <div class="ui-column">
+            <p>Controls:</p>
+            <div class="movement-controls-column">
+                <p class="movement-control-label">Forward: W</p>
+                <p class="movement-control-label">Backward: S</p>
+                <p class="movement-control-label">Left: A</p>
+                <p class="movement-control-label">Right: D</p>
+            </div>
+            <div class="movement-controls-column">
+                <p class="movement-control-label">Up: R</p>
+                <p class="movement-control-label">Down: F</p>
+                <p class="movement-control-label">Tilt Up: Z</p>
+                <p class="movement-control-label">Tilt Down: x</p>
+            </div>
+            <p>Reload page for random colors</p>
+        </div>
+        <div class="ui-column">
+            <p id="numdot"></p>
+            <div class="settings-item">
+                <label class="light-color-picker">Light Color:</label><input id="lightColorPicker" class="color-picker" type="color">
+                <!-- Light Color:<input id="lightColorPicker" class="color-picker" type="range"> -->
+            </div>
+            <div class="settings-item">
+                <label>Light Animation</label>:<input id="lightAnimation" class="toggle" type="checkbox" checked oninput="onFlipLightAnimation(this.checked)">
+            </div>
+            <div class="settings-item">
+                Light X:<input id="lightXSlider" class="light-pos-slider" type="range" min="-200" max="200" oninput="onMoveLight(this.value, 0, 0)">
+            </div>
+            <div class="settings-item">
+                Light Y:<input id="lightYSlider" class="light-pos-slider" type="range" min="-200" max="200" oninput="onMoveLight(0, this.value, 0)">
+            </div>
+            <div class="settings-item">
+                Light Z:<input id="lightZSlider" class="light-pos-slider" type="range" min="-200" max="200" oninput="onMoveLight(0, 0, this.value)">
+            </div>
+            <div class="settings-item">
+                Spotlight on:<input id="spotlightSwitch" class="toggle" type="checkbox" oninput="onFlipSpotlightSwitch(this.checked)">
+            </div>
+            <div class="settings-item">
+                Lights on:<input id="lightSwitch" class="toggle" type="checkbox" checked oninput="onFlipLightSwitch(this.checked)">
+            </div>
+            <div class="settings-item">
+                Normal Color Debugging:<input id="normalSwitch" class="toggle" type="checkbox" oninput="onFlipNormalSwitch(this.checked)">
+            </div>
+            <div class="settings-item">
+                Zoom Out:<input id="zoomSlider" class="slider" type="range" value="1" min="1", max="20" oninput="onZoomInput(this.value)">
+            </div>
         </div>
     </div>
     <script src="../lib/webgl-utils.js"></script>

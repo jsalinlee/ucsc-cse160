@@ -5,3 +5,25 @@
 .settings {
     text-align: center;
 }
+
+.light-color-picker {
+    margin: 10px;
+}
+
+.settings-item {
+    margin-top: 5px;
+}
+
+.movement-controls-column {
+    display: inline-block;
+    margin: 0 20px 0 0;
+}
+
+.ui-column {
+    display: inline-block;
+    margin: 0 40px 0 0;
+}
+
+.main-controls {
+    text-align: center;
+}

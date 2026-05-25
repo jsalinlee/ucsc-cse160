@@ -4,3 +4,4 @@ jlee1123@ucsc.edu -->
 Resources used to complete asgn4:
 
 - Fall 2021 Assignment 4 Lab Videos
+- MDN Web Docs for WebGL, JavaScript, HTML reference
