@@ -333,12 +333,15 @@ async function main() {
     }
 
     // Now soot sprites!
-    let sprite = new SootSprite(scene);
-    try {
-        await sprite.render();
-        // sprite.body.position.set(0,1,0);
-    } catch (err) {
-        console.error(err);
+    const sprites = [];
+    for (let i = 0; i < 25; i++) {
+        let sprite = new SootSprite(scene);
+        try {
+            await sprite.render();
+            // console.log(sprite);
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     const timer = new THREE.Timer();
